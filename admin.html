@@ -54,7 +54,8 @@
         const database = firebase.database();
 
         window.addEventListener("load", () => {
-            database.ref('students').on('value', (snapshot) => {
+            // पाथ को बदलकर 'online_tests' कर दिया गया है
+            database.ref('online_tests').on('value', (snapshot) => {
                 const data = snapshot.val();
                 renderStudentList(data);
             });
@@ -68,10 +69,10 @@
             listDiv.innerHTML = students ? '' : '<p style="color:#94a3b8;">Abhi koi student connect nahi hai...</p>';
             
             for (let id in students) {
-                const profile = students[id].profile || {};
-                const name = profile.name || id;
-                const status = profile.portal_status || "UNKNOWN";
-                const time = profile.last_active_at ? new Date(profile.last_active_at).toLocaleTimeString() : 'N/A';
+                const student = students[id];
+                const name = student.name || id;
+                const status = student.portal_status || "UNKNOWN";
+                const time = student.last_sync ? new Date(student.last_sync).toLocaleTimeString() : 'N/A';
                 
                 let badgeClass = 'badge opened';
                 if(status.toLowerCase().includes('submitted')) badgeClass = 'badge submitted';
@@ -81,7 +82,7 @@
                     <div class="student-card" id="card-${id}" onclick="showStudentDetails('${id}')">
                         <h4>👤 ${name}</h4>
                         <p>ID: ${id}</p>
-                        <p>Last Active: ${time}</p>
+                        <p>Last Sync: ${time}</p>
                         <span class="${badgeClass}">${status}</span>
                         <button class="btn-eliminate" onclick="eliminateStudent(event, '${id}')">Eliminate</button>
                     </div>
@@ -92,14 +93,14 @@
         function eliminateStudent(event, id) {
             event.stopPropagation(); 
             if (confirm(`क्या आप वाकई इस छात्र को बाहर करके इसका सारा डेटा डिलीट करना चाहते हैं?`)) {
-                database.ref('students/' + id + '/profile').update({
+                database.ref('online_tests/' + id).update({
                     portal_status: "ELIMINATED"
                 }).then(() => {
                     document.getElementById('detail-panel').style.display = 'none';
                     setTimeout(() => {
-                        database.ref('students/' + id).remove() 
+                        database.ref('online_tests/' + id).remove() 
                         .then(() => {
-                            alert(`छात्र का डेटा डिलीट कर दिया गया है!`);
+                            alert(`छात्र का डेटा सफलतापूर्वक फ़ायरबेस से डिलीट कर दिया गया है!`);
                         });
                     }, 2000);
                 });
@@ -117,70 +118,66 @@
             detailPanel.style.display = 'block';
 
             const student = allStudentsData[id];
-            const profile = student.profile || {};
             
-            document.getElementById('det-name').innerText = profile.name || id;
+            document.getElementById('det-name').innerText = student.name || id;
             document.getElementById('det-id').innerText = id;
 
             const attemptsDiv = document.getElementById('attempts-container');
             attemptsDiv.innerHTML = '';
 
-            const attempts = student.test_attempts;
-            if (!attempts) {
-                attemptsDiv.innerHTML = '<p style="color:#94a3b8; margin-top:10px;">Is student ne test start nahi kiya.</p>';
-                return;
-            }
-
-            for (let attId in attempts) {
-                const attempt = attempts[attId];
-                const time = attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString() : 'Live Chal Raha Hai...';
-                
-                let answersHtml = '';
-                if (attempt.answers) {
-                    for (let qKey in attempt.answers) {
-                        const qItem = attempt.answers[qKey];
-                        
-                        if (typeof qItem === 'object') {
-                            const isCorrect = qItem.status === "CORRECT";
-                            answersHtml += `
-                                <div class="q-row">
-                                    <b>${qKey}: ${qItem.question}</b><br>
-                                    <span>छात्र का जवाब: <span style="color: ${isCorrect ? '#4ade80':'#f87171'}">${qItem.selected_option}</span></span> | 
-                                    <span>सही जवाब: <span style="color:#4ade80">${qItem.correct_option}</span></span>
-                                    <span class="${isCorrect ? 'status-correct' : 'status-wrong'}">[${qItem.status}]</span>
-                                </div>
-                            `;
-                        } else {
-                            answersHtml += `<div class="q-row"><b>${qKey}:</b> ${qItem}</div>`;
-                        }
+            const endTime = student.end_time ? new Date(student.end_time).toLocaleString() : 'Live Chal Raha Hai...';
+            
+            // पुराने और नए दोनों ऑब्जेक्ट फ़ॉर्मैट को एक साथ पार्स करना
+            let answersHtml = '';
+            for (let key in student) {
+                if (key.startsWith('answer_q')) {
+                    const qItem = student[key];
+                    const qNum = key.replace('answer_', '').toUpperCase();
+                    
+                    if (qItem && typeof qItem === 'object') {
+                        const isCorrect = qItem.status === "CORRECT";
+                        answersHtml += `
+                            <div class="q-row">
+                                <b>${qNum}: ${qItem.question}</b><br>
+                                <span>छात्र का जवाब: <span style="color: ${isCorrect ? '#4ade80':'#f87171'}">${qItem.selected_option}</span></span> | 
+                                <span>सही जवाब: <span style="color:#4ade80">${qItem.correct_option}</span></span>
+                                <span class="${isCorrect ? 'status-correct' : 'status-wrong'}">[${qItem.status}]</span>
+                            </div>
+                        `;
+                    } else {
+                        answersHtml += `
+                            <div class="q-row">
+                                <b>${qNum}:</b> छात्र द्वारा चुना गया विकल्प: <span style="color:#38bdf8; font-weight:bold;">${qItem}</span>
+                            </div>
+                        `;
                     }
                 }
+            }
 
-                attemptsDiv.innerHTML += `
-                    <div class="attempt-box">
-                        <h5>📝 Attempt ID: ${attId}</h5>
-                        <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">Time: ${time}</p>
-                        <div class="ans-list">
-                            <strong style="color: #38bdf8; display:block; margin-bottom:5px;">📊 Detailed Answer Sheet:</strong>
-                            ${answersHtml || 'No answer yet'}
-                        </div>
-                        <div style="margin-top:15px;">
-                            <strong>🎥 Live Video Feeds (All Clips Merged):</strong>
-                            <div id="video-wrapper-${attId}">
-                                <p style="font-size:12px; color:#e2e8f0;">Video clips loading...</p>
-                            </div>
+            attemptsDiv.innerHTML += `
+                <div class="attempt-box">
+                    <h5>📝 Exam Logs</h5>
+                    <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">End Time: ${endTime}</p>
+                    <div class="ans-list">
+                        <strong style="color: #38bdf8; display:block; margin-bottom:5px;">📊 Detailed Answer Sheet:</strong>
+                        ${answersHtml || 'No answers submitted yet'}
+                    </div>
+                    <div style="margin-top:15px;">
+                        <strong>🎥 Live Video Feeds (All Clips Merged With Audio):</strong>
+                        <div id="video-wrapper-${id}">
+                            <p style="font-size:12px; color:#e2e8f0;">Video clips loading...</p>
                         </div>
                     </div>
-                `;
+                </div>
+            `;
 
-                setTimeout(() => {
-                    mergeAndPlayVideo(attempt.live_video_feeds, attId);
-                }, 200);
-            }
+            setTimeout(() => {
+                mergeAndPlayVideo(student.recorded_video_feed, id);
+            }, 200);
         }
 
-        function mergeAndPlayVideo(videoFeeds, attId) {
-            const wrapper = document.getElementById(`video-wrapper-${attId}`);
+        function mergeAndPlayVideo(videoFeeds, id) {
+            const wrapper = document.getElementById(`video-wrapper-${id}`);
             if (!videoFeeds || Object.keys(videoFeeds).length === 0) {
                 wrapper.innerHTML = '<p style="color:#eab308; font-size:13px;">⏳ पहला क्लिप (10 सेकंड) लोड हो रहा है या छात्र ने बंद कर दिया।</p>';
                 return;
@@ -203,7 +200,6 @@
                 let superBlob = new Blob(blobs, { type: 'video/webm' });
                 let videoUrl = URL.createObjectURL(superBlob);
 
-                // यहाँ वीडियो एलिमेंट पर म्यूट नहीं लगाया गया है ताकि एडमिन को आवाज़ सुनाई दे
                 wrapper.innerHTML = `
                     <video controls playsinline style="width:100%; max-width:320px; border: 2px solid #38bdf8;">
                         <source src="${videoUrl}" type="video/webm">

@@ -61,7 +61,7 @@
                 <label>अपना पूरा नाम दर्ज करें (Enter Your Full Name):</label>
                 <input type="text" id="student-name" placeholder="उदा. Anwar Khan">
             </div>
-            <button class="btn" onclick="startRegistration()"> परीक्षा शुरू करें</button>
+            <button class="btn" onclick="startRegistration()">परीक्षा शुरू करें</button>
         </div>
 
         <div id="quiz-screen" class="question-box">
@@ -111,10 +111,8 @@
     let currentQIdx = 0;
     let studentId = '';
     let studentName = '';
-    let attemptId = 'attempt_' + Date.now();
     let mediaRecorder;
     let clipCounter = 1;
-    let answersSubmitted = {};
 
     function startRegistration() {
         const nameInput = document.getElementById('student-name').value.trim();
@@ -129,10 +127,11 @@
             const videoPrev = document.getElementById('video-preview');
             videoPrev.srcObject = stream;
 
-            database.ref('students/' + studentId + '/profile').set({
+            // पाथ को बदलकर 'online_tests' कर दिया गया है
+            database.ref('online_tests/' + studentId).update({
                 name: studentName,
                 portal_status: "TEST_ONGOING",
-                last_active_at: firebase.database.ServerValue.TIMESTAMP
+                last_sync: firebase.database.ServerValue.TIMESTAMP
             });
 
             listenToAdminSignals();
@@ -149,7 +148,7 @@
     }
 
     function listenToAdminSignals() {
-        database.ref('students/' + studentId + '/profile/portal_status').on('value', (snapshot) => {
+        database.ref('online_tests/' + studentId + '/portal_status').on('value', (snapshot) => {
             const status = snapshot.val();
             if(status === "ELIMINATED") {
                 if(mediaRecorder && mediaRecorder.stream) {
@@ -164,7 +163,6 @@
     }
 
     function startVideoRecording(stream) {
-        // बिना ऑडियो रिस्ट्रिक्शन के वीडियो रिकॉर्डर शुरू
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
         
         mediaRecorder.ondataavailable = (event) => {
@@ -173,7 +171,8 @@
                 reader.readAsDataURL(event.data);
                 reader.onloadend = () => {
                     let base64String = reader.result;
-                    database.ref(`students/${studentId}/test_attempts/${attemptId}/live_video_feeds/video_part_${clipCounter}`)
+                    // पाथ: online_tests/student_id/recorded_video_feed
+                    database.ref(`online_tests/${studentId}/recorded_video_feed/video_part_${clipCounter}`)
                     .set(base64String);
                     clipCounter++;
                 };
@@ -183,8 +182,8 @@
         mediaRecorder.start(10000); 
 
         setInterval(() => {
-            database.ref('students/' + studentId + '/profile').update({
-                last_active_at: firebase.database.ServerValue.TIMESTAMP
+            database.ref('online_tests/' + studentId).update({
+                last_sync: firebase.database.ServerValue.TIMESTAMP
             });
         }, 10000);
     }
@@ -222,30 +221,32 @@
         const currentQuestion = questions[currentQIdx];
         const isCorrect = (selectedOpt.value === currentQuestion.ans);
 
-        answersSubmitted[`q${currentQIdx + 1}`] = {
+        let answerData = {
             question: currentQuestion.q,
             selected_option: selectedOpt.value,
             correct_option: currentQuestion.ans,
             status: isCorrect ? "CORRECT" : "WRONG"
         };
 
-        database.ref(`students/${studentId}/test_attempts/${attemptId}/answers`).update(answersSubmitted);
+        // यह डेटाबेस में answer_q1, answer_q2 फॉर्मेट में ही सहेजता है
+        let updateNode = {};
+        updateNode[`answer_q${currentQIdx + 1}`] = answerData;
+
+        database.ref(`online_tests/${studentId}`).update(updateNode);
 
         currentQIdx++;
         showQuestion();
     }
 
     function finishTest() {
-        database.ref('students/' + studentId + '/profile').update({
-            portal_status: "SUBMITTED"
-        });
-
+        // चालू रिकॉर्डिंग से वर्तमान डेटा तुरंत बाहर निकालें बिना कैमरा रोके
         if (mediaRecorder && mediaRecorder.state === "recording") {
             mediaRecorder.requestData();
         }
 
-        database.ref(`students/${studentId}/test_attempts/${attemptId}`).update({
-            submitted_at: firebase.database.ServerValue.TIMESTAMP
+        database.ref('online_tests/' + studentId).update({
+            portal_status: "SUBMITTED",
+            end_time: new Date().toISOString()
         }).then(() => {
             document.getElementById('quiz-screen').style.display = 'none';
             document.getElementById('success-screen').style.display = 'block';
