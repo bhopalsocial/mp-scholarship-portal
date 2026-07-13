@@ -23,7 +23,7 @@
         .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .status-opened { background: #eab308; color: #000; }
         .status-submitted { background: #22c55e; color: #fff; }
-        .answers-box { background: #0f172a; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 12px; }
+        .answers-box { background: #0f172a; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 12px; line-height: 1.5; }
         .video-box { margin-top: 10px; display: none; }
         video { width: 100%; border-radius: 8px; background: #000; margin-top: 5px; }
         .btn-play { width: 100%; padding: 10px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; margin-top: 10px; }
@@ -76,12 +76,11 @@
                                 <div class="info-row"><span class="label">स्टेटस:</span><span class="status-badge ${statusClass}">${status}</span></div>
                                 
                                 <div class="answers-box">
-                                    <strong>📝 छात्र के उत्तर:</strong><br>
-                                    Q1: ${student.answer_q1 || '-'} | 
-                                    Q2: ${student.answer_q2 || '-'} | 
-                                    Q3: ${student.answer_q3 || '-'} | 
-                                    Q4: ${student.answer_q4 || '-'} | 
-                                    Q5: ${student.answer_q5 || '-'}
+                                    <strong>📝 छात्र के उत्तर (8 सवाल):</strong><br>
+                                    Q1: ${student.answer_q1 || '-'} | Q2: ${student.answer_q2 || '-'} | 
+                                    Q3: ${student.answer_q3 || '-'} | Q4: ${student.answer_q4 || '-'}<br>
+                                    Q5: ${student.answer_q5 || '-'} | Q6: ${student.answer_q6 || '-'} | 
+                                    Q7: ${student.answer_q7 || '-'} | Q8: ${student.answer_q8 || '-'}
                                 </div>
                             </div>
                     `;
@@ -97,7 +96,6 @@
                         cardHTML += `<div class="no-video">वीडियो रिकॉर्ड हो रहा है...</div>`;
                     }
 
-                    // एलिमिनेट करने का खतरनाक लाल बटन
                     cardHTML += `
                             <button class="btn-delete" onclick="eliminateStudent('${id}')">❌ Eliminate Student</button>
                         </div>
@@ -119,16 +117,10 @@
             }
         }
 
-        // फनक्शन जो सीधा फ़ायरबेस से छात्र का डेटा उड़ा देगा
         function eliminateStudent(id) {
-            if (confirm("क्या आप वाकई इस छात्र को हटाना (Eliminate) चाहते हैं? इसका पूरा वीडियो और डेटा डिलीट हो जाएगा।")) {
+            if (confirm("क्या आप वाकई इस छात्र को हटाना चाहते हैं?")) {
                 database.ref('online_tests/' + id).remove()
-                .then(() => {
-                    alert("छात्र को सफलतापूर्वक एलिमिनेट कर दिया गया है।");
-                })
-                .catch((error) => {
-                    alert("हटाने में त्रुटि हुई: " + error.message);
-                });
+                .then(() => { alert("छात्र को एलिमिनेट कर दिया गया है।"); });
             }
         }
     </script>
