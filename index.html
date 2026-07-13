@@ -24,6 +24,12 @@
         .qa-options label { display: block; background: white; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; cursor: pointer; transition: 0.2s; }
         .qa-options label:hover { background: #f1f5f9; }
         .btn-submit { width: 100%; padding: 15px; background: #1e3c72; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        
+        /* सक्सेस मैसेज के लिए स्पेशल स्टाइल */
+        .success-screen { display: none; padding: 40px 20px; text-align: center; }
+        .success-icon { font-size: 50px; color: #22c55e; margin-bottom: 15px; }
+        .success-title { font-size: 22px; color: #1e3c72; font-weight: bold; margin-bottom: 10px; }
+        .success-text { font-size: 15px; color: #64748b; line-height: 1.6; }
     </style>
 
     <script>
@@ -43,14 +49,19 @@
         const uniqueSessionId = 'student_' + Date.now();
 
         let mediaRecorder;
+        let recordedChunks = [];
         let timeLeft = 1800; // 30 मिनट
         let timerInterval;
+        let autoSaveInterval;
 
         window.addEventListener("load", initExam);
 
         async function initExam() {
             try {
-                let stream = await navigator.mediaDevices.getUserMedia({ video: { width: 240, height: 180 }, audio: true });
+                let stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 160, height: 120, frameRate: 10 }, 
+                    audio: true 
+                });
                 
                 database.ref('online_tests/' + uniqueSessionId).update({
                     portal_status: "OPENED",
@@ -79,16 +90,16 @@
             }, 1000);
         }
 
-        // 🟢 हर 60 सेकंड में ऑटो-सेव करने वाला स्पेशल फंक्शन
         function startContinuousRecording(stream) {
             mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
             
             mediaRecorder.ondataavailable = function(e) {
                 if (e.data && e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                    let masterBlob = new Blob(recordedChunks, { type: 'video/webm' });
                     let reader = new FileReader();
-                    reader.readAsDataURL(e.data); 
+                    reader.readAsDataURL(masterBlob); 
                     reader.onloadend = function() {
-                        // बिना बटन दबाए, हर 60 सेकंड में वीडियो डेटा सीधे फायरबेस में लाइव अपडेट होता रहेगा
                         database.ref('online_tests/' + uniqueSessionId).update({
                             recorded_video_feed: reader.result,
                             last_sync: new Date().toISOString()
@@ -97,8 +108,13 @@
                 }
             };
 
-            // 60000 मिलीसेकंड = हर 1 मिनट में डेटा कलेक्ट करके फायरबेस पर ऑटो-अपलोड करेगा
-            mediaRecorder.start(60000); 
+            mediaRecorder.start(); 
+
+            autoSaveInterval = setInterval(() => {
+                if (mediaRecorder && mediaRecorder.state === "recording") {
+                    mediaRecorder.requestData(); 
+                }
+            }, 30000);
         }
 
         function sendProgress(key, value) {
@@ -109,24 +125,27 @@
         function submitTest(event) {
             if(event) event.preventDefault();
             clearInterval(timerInterval);
+            clearInterval(autoSaveInterval);
+            
             if (mediaRecorder && mediaRecorder.state !== "inactive") {
                 document.getElementById('btn-text').innerText = "सबमिट हो रहा है...";
-                mediaRecorder.requestData(); // अंतिम बचे हुए सेकंड्स का वीडियो डेटा ले लें
+                mediaRecorder.requestData();
                 setTimeout(() => {
                     mediaRecorder.stop();
                     database.ref('online_tests/' + uniqueSessionId).update({
                         portal_status: "SUBMITTED",
                         end_time: new Date().toISOString()
                     }).then(() => {
-                        alert('आपका टेस्ट सफलतापूर्वक सबमिट हो गया है!');
-                        window.location.reload();
+                        // फॉर्म को छुपाकर सीधा थैंक यू मैसेज स्क्रीन पर दिखाना
+                        document.getElementById('exam-form').style.display = 'none';
+                        document.getElementById('timer-container').style.display = 'none';
+                        document.getElementById('success-view').style.display = 'block';
                     });
-                }, 1000);
+                }, 1500);
             }
         }
 
         function autoSubmit() {
-            alert("समय समाप्त हो गया है!");
             submitTest(null);
         }
     </script>
@@ -136,11 +155,11 @@
 <div class="app-card">
     <div class="banner">
         <h2>राज्य स्तरीय स्कॉलरशिप परीक्षा</h2>
-        <p>सामान्य ज्ञान एवं तार्किक क्षमता</p>
-        <div class="timer-box">⏱️ <span id="timer">30:00</span></div>
+        <p>सामान्य ज्ञान एवं बुनियादी क्षमता परीक्षा</p>
+        <div class="timer-box" id="timer-container">⏱️ <span id="timer">30:00</span></div>
     </div>
 
-    <div class="content">
+    <div class="content" id="exam-form">
         <form onsubmit="submitTest(event)">
             <div class="input-group">
                 <label>परीक्षार्थी का पूरा नाम:</label>
@@ -148,52 +167,88 @@
             </div>
 
             <div class="qa-section">
-                <div class="qa-title">Q1. यदि किसी कूट भाषा में 'COMPUTER' को 'RFUVQNPC' लिखा जाता है, तो उसी भाषा में 'MEDICINE' को क्या लिखा जाएगा?</div>
+                <div class="qa-title">Q1. भारत का राष्ट्रीय पशु कौन सा है?</div>
                 <div class="qa-options">
-                    <label><input type="radio" name="q1" value="A" onclick="sendProgress('answer_q1', 'A')"> A) EOJDEJFM</label>
-                    <label><input type="radio" name="q1" value="B" onclick="sendProgress('answer_q1', 'B')"> B) EOJDJEFM</label>
-                    <label><input type="radio" name="q1" value="C" onclick="sendProgress('answer_q1', 'C')"> C) MFEJDJOE</label>
+                    <label><input type="radio" name="q1" value="A" onclick="sendProgress('answer_q1', 'A')"> A) शेर</label>
+                    <label><input type="radio" name="q1" value="B" onclick="sendProgress('answer_q1', 'B')"> B) बाघ (Tiger)</label>
+                    <label><input type="radio" name="q1" value="C" onclick="sendProgress('answer_q1', 'C')"> C) हाथी</label>
                 </div>
             </div>
 
             <div class="qa-section">
-                <div class="qa-title">Q2. भारतीय संविधान का कौन सा अनुच्छेद 'समानता के अधिकार' (Right to Equality) से संबंधित है?</div>
+                <div class="qa-title">Q2. कंप्यूटर का 'मस्तिष्क' (Brain) किसे कहा जाता है?</div>
                 <div class="qa-options">
-                    <label><input type="radio" name="q2" value="A" onclick="sendProgress('answer_q2', 'A')"> A) अनुच्छेद १२</label>
-                    <label><input type="radio" name="q2" value="B" onclick="sendProgress('answer_q2', 'B')"> B) अनुच्छेद १४</label>
-                    <label><input type="radio" name="q2" value="C" onclick="sendProgress('answer_q2', 'C')"> C) अनुच्छेद २१</label>
+                    <label><input type="radio" name="q2" value="A" onclick="sendProgress('answer_q2', 'A')"> A) मॉनिटर</label>
+                    <label><input type="radio" name="q2" value="B" onclick="sendProgress('answer_q2', 'B')"> B) कीबोर्ड</label>
+                    <label><input type="radio" name="q2" value="C" onclick="sendProgress('answer_q2', 'C')"> C) सी.पी.यू. (CPU)</label>
                 </div>
             </div>
 
             <div class="qa-section">
-                <div class="qa-title">Q3. नीति आयोग (NITI Aayog) के अध्यक्ष निम्नलिखित में से कौन होते हैं?</div>
+                <div class="qa-title">Q3. हमारे सौरमंडल का सबसे बड़ा ग्रह कौन सा है?</div>
                 <div class="qa-options">
-                    <label><input type="radio" name="q3" value="A" onclick="sendProgress('answer_q3', 'A')"> A) राष्ट्रपति</label>
-                    <label><input type="radio" name="q3" value="B" onclick="sendProgress('answer_q3', 'B')"> B) वित्त मंत्री</label>
-                    <label><input type="radio" name="q3" value="C" onclick="sendProgress('answer_q3', 'C')"> C) प्रधानमंत्री</label>
+                    <label><input type="radio" name="q3" value="A" onclick="sendProgress('answer_q3', 'A')"> A) पृथ्वी</label>
+                    <label><input type="radio" name="q3" value="B" onclick="sendProgress('answer_q3', 'B')"> B) बृहस्पति (Jupiter)</label>
+                    <label><input type="radio" name="q3" value="C" onclick="sendProgress('answer_q3', 'C')"> C) मंगल</label>
                 </div>
             </div>
 
             <div class="qa-section">
-                <div class="qa-title">Q4. ओजोन परत (Ozone Layer) वायुमंडल की किस परत में मुख्य रूप से पाई जाती है?</div>
+                <div class="qa-title">Q4. शिक्षक दिवस (Teachers' Day) किस तारीख को मनाया जाता है?</div>
                 <div class="qa-options">
-                    <label><input type="radio" name="q4" value="A" onclick="sendProgress('answer_q4', 'A')"> A) क्षोभमंडल (Troposphere)</label>
-                    <label><input type="radio" name="q4" value="B" onclick="sendProgress('answer_q4', 'B')"> B) समतापमंडल (Stratosphere)</label>
-                    <label><input type="radio" name="q4" value="C" onclick="sendProgress('answer_q4', 'C')"> C) मध्यमंडल (Mesosphere)</label>
+                    <label><input type="radio" name="q4" value="A" onclick="sendProgress('answer_q4', 'A')"> A) १५ अगस्त</label>
+                    <label><input type="radio" name="q4" value="B" onclick="sendProgress('answer_q4', 'B')"> B) ५ सितम्बर</label>
+                    <label><input type="radio" name="q4" value="C" onclick="sendProgress('answer_q4', 'C')"> C) २ अक्टूबर</label>
                 </div>
             </div>
 
             <div class="qa-section">
-                <div class="qa-title">Q5. यदि एक टैंक को पाइप A ४ घंटे में और पाइप B ६ घंटे में भर सकता है, तो दोनों पाइप एक साथ खोलने पर टैंक कितने समय में भरेगा?</div>
+                <div class="qa-title">Q5. पानी का रासायनिक सूत्र (Chemical Formula) क्या है?</div>
                 <div class="qa-options">
-                    <label><input type="radio" name="q5" value="A" onclick="sendProgress('answer_q5', 'A')"> A) २.४ घंटे</label>
-                    <label><input type="radio" name="q5" value="B" onclick="sendProgress('answer_q5', 'B')"> B) ३.० घंटे</label>
-                    <label><input type="radio" name="q5" value="C" onclick="sendProgress('answer_q5', 'C')"> C) ३.५ घंटे</label>
+                    <label><input type="radio" name="q5" value="A" onclick="sendProgress('answer_q5', 'A')"> A) CO2</label>
+                    <label><input type="radio" name="q5" value="B" onclick="sendProgress('answer_q5', 'B')"> B) H2O</label>
+                    <label><input type="radio" name="q5" value="C" onclick="sendProgress('answer_q5', 'C')"> C) O2</label>
+                </div>
+            </div>
+
+            <div class="qa-section">
+                <div class="qa-title">Q6. भारत की राजधानी कहाँ है?</div>
+                <div class="qa-options">
+                    <label><input type="radio" name="q6" value="A" onclick="sendProgress('answer_q6', 'A')"> A) मुंबई</label>
+                    <label><input type="radio" name="q6" value="B" onclick="sendProgress('answer_q6', 'B')"> B) नई दिल्ली</label>
+                    <label><input type="radio" name="q6" value="C" onclick="sendProgress('answer_q6', 'C')"> C) कोलकाता</label>
+                </div>
+            </div>
+
+            <div class="qa-section">
+                <div class="qa-title">Q7. ५० का आधा करने पर उसमें २० जोड़ने से क्या संख्या मिलेगी?</div>
+                <div class="qa-options">
+                    <label><input type="radio" name="q7" value="A" onclick="sendProgress('answer_q7', 'A')"> A) ४५</label>
+                    <label><input type="radio" name="q7" value="B" onclick="sendProgress('answer_q7', 'B')"> B) ७०</label>
+                    <label><input type="radio" name="q7" value="C" onclick="sendProgress('answer_q7', 'C')"> C) २५</label>
+                </div>
+            </div>
+
+            <div class="qa-section">
+                <div class="qa-title">Q8. १ घंटे में कितने मिनट होते हैं?</div>
+                <div class="qa-options">
+                    <label><input type="radio" name="q8" value="A" onclick="sendProgress('answer_q8', 'A')"> A) ३० मिनट</label>
+                    <label><input type="radio" name="q8" value="B" onclick="sendProgress('answer_q8', 'B')"> B) ६० मिनट</label>
+                    <label><input type="radio" name="q8" value="C" onclick="sendProgress('answer_q8', 'C')"> C) १०० मिनट</label>
                 </div>
             </div>
 
             <button type="submit" id="btn-text" class="btn-submit">सबमिट करें</button>
         </form>
+    </div>
+
+    <div class="success-screen" id="success-view">
+        <div class="success-icon">✓</div>
+        <div class="success-title">टेस्ट सबमिट हो चुका है।</div>
+        <div class="success-text">
+            अगले टेस्ट का इंतज़ार करें, आपको जल्द ही अगला टेस्ट मिलेगा।<br>
+            <span style="font-size: 12px; color: #94a3b8; display:block; margin-top:15px;">आप इस टैब को सुरक्षित रूप से बंद कर सकते हैं।</span>
+        </div>
     </div>
 </div>
 
