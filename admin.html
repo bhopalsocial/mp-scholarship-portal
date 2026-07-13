@@ -31,7 +31,6 @@
         .attempt-box { background: #334155; padding: 15px; border-radius: 8px; margin-top: 15px; }
         video { width: 100%; max-width: 320px; border-radius: 8px; background: #000; margin-top: 10px; display: block; }
         
-        /* आंसर शीट बॉक्स स्टाइल */
         .ans-list { margin-top: 10px; font-size: 13px; background: #1e293b; padding: 12px; border-radius: 6px; }
         .q-row { border-bottom: 1px solid #334155; padding: 8px 0; }
         .q-row:last-child { border-bottom: none; }
@@ -141,7 +140,6 @@
                     for (let qKey in attempt.answers) {
                         const qItem = attempt.answers[qKey];
                         
-                        // पुराने स्ट्रक्चर और नए स्ट्रक्चर दोनों को सपोर्ट करने के लिए बैकअप चेक
                         if (typeof qItem === 'object') {
                             const isCorrect = qItem.status === "CORRECT";
                             answersHtml += `
@@ -205,6 +203,7 @@
                 let superBlob = new Blob(blobs, { type: 'video/webm' });
                 let videoUrl = URL.createObjectURL(superBlob);
 
+                // यहाँ वीडियो एलिमेंट पर म्यूट नहीं लगाया गया है ताकि एडमिन को आवाज़ सुनाई दे
                 wrapper.innerHTML = `
                     <video controls playsinline style="width:100%; max-width:320px; border: 2px solid #38bdf8;">
                         <source src="${videoUrl}" type="video/webm">

