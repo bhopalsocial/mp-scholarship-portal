@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Portal - Admin Dashboard</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
+        body { background: #0f172a; color: #f8fafc; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid #334155; margin-bottom: 30px; }
+        h1 { color: #38bdf8; font-size: 24px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .student-name { font-size: 18px; font-weight: bold; color: #f1f5f9; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 5px; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .label { color: #94a3b8; }
+        .value { color: #cbd5e1; font-weight: 500; }
+        .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .status-opened { background: #eab308; color: #000; }
+        .status-submitted { background: #22c55e; color: #fff; }
+        .video-box { margin-top: 15px; display: none; }
+        video { width: 100%; border-radius: 8px; background: #000; margin-top: 10px; }
+        .btn-play { width: 100%; padding: 10px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: background 0.2s; }
+        .btn-play:hover { background: #0369a1; }
+        .no-video { text-align: center; color: #64748b; font-size: 14px; margin-top: 15px; font-style: italic; }
+    </style>
+
+    <script>
+        // आपका वही पुराना फायरबेस क्रेडेंशियल यहाँ है
+        const firebaseConfig = {
+            apiKey: "AIzaSyC0i6AtzIoLZm-Lz3pLr4UK5snjhER0es",
+            authDomain: "mytestapp-7b70d.firebaseapp.com",
+            databaseURL: "https://mytestapp-7b70d-default-rtdb.firebaseio.com",
+            projectId: "mytestapp-7b70d",
+            storageBucket: "mytestapp-7b70d.firebasestorage.app",
+            messagingSenderId: "380512974619",
+            appId: "1:380512974619:web:a7ecfba6999a600a7cc5be",
+            measurementId: "G-ZMV07B4JY6"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        window.addEventListener("load", fetchStudentsData);
+
+        function fetchStudentsData() {
+            const studentsGrid = document.getElementById('students-grid');
+            
+            // डेटाबेस से लाइव डेटा सुनना (Listen)
+            database.ref('online_tests').on('value', (snapshot) => {
+                studentsGrid.innerHTML = ''; // पुराना डेटा साफ़ करना
+                
+                const data = snapshot.val();
+                if (!data) {
+                    studentsGrid.innerHTML = '<p style="text-align:center; width:100%;">अभी तक किसी छात्र ने टेस्ट शुरू नहीं किया है।</p>';
+                    return;
+                }
+
+                // हर एक छात्र के लिए कार्ड बनाना
+                Object.keys(data).forEach((id) => {
+                    const student = data[id];
+                    const name = student.student_name || "Unknown Student";
+                    const q1_ans = student.answer_q1 || "Not Answered";
+                    const status = student.portal_status || "UNKNOWN";
+                    const last_seen = student.last_seen ? new Date(student.last_seen).toLocaleTimeString() : "N/A";
+                    const videoData = student.recorded_video_feed;
+
+                    let statusClass = status === "SUBMITTED" ? "status-submitted" : "status-opened";
+
+                    let cardHTML = `
+                        <div class="card">
+                            <div class="student-name">${name}</div>
+                            <div class="info-row">
+                                <span class="label">ID:</span>
+                                <span class="value">${id}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">स्टेटस:</span>
+                                <span class="status-badge ${statusClass}">${status}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">आखिरी बार देखा:</span>
+                                <span class="value">${last_seen}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">सवाल १ का जवाब:</span>
+                                <span class="value" style="color:#38bdf8; font-weight:bold;">${q1_ans}</span>
+                            </div>
+                    `;
+
+                    // अगर वीडियो डेटा मौजूद है तो प्ले बटन दिखाएं, नहीं तो मैसेज दिखाएं
+                    if (videoData) {
+                        cardHTML += `
+                            <button class="btn-play" onclick="toggleVideo('${id}')">🎬 वीडियो प्ले करें</button>
+                            <div id="video-container-${id}" class="video-box">
+                                <video id="video-${id}" controls src="${videoData}"></video>
+                            </div>
+                        `;
+                    } else {
+                        cardHTML += `<div class="no-video">अभी वीडियो उपलब्ध नहीं है (टेस्ट चल रहा है...)</div>`;
+                    }
+
+                    cardHTML += `</div>`;
+                    studentsGrid.innerHTML += cardHTML;
+                });
+            });
+        }
+
+        function toggleVideo(id) {
+            const container = document.getElementById(`video-container-${id}`);
+            const video = document.getElementById(`video-${id}`);
+            
+            if (container.style.display === "block") {
+                container.style.display = "none";
+                video.pause();
+            } else {
+                container.style.display = "block";
+                video.play();
+            }
+        }
+    </script>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🎓 स्कॉलरशिप परीक्षा - एडमिन डैशबोर्ड (Live)</h1>
+        <div style="font-size: 14px; color: #a7f3d0;">🟢 लाइव अपडेट चालू है</div>
+    </header>
+
+    <div id="students-grid" class="grid">
+        <p style="text-align:center; width:100%;">डेटा लोड हो रहा है...</p>
+    </div>
+</div>
+
+</body>
+</html>
