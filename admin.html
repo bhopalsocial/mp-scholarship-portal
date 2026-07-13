@@ -24,229 +24,112 @@
         .badge.submitted { background: #22c55e; color: #fff; }
         .badge.eliminated { background: #ef4444; color: #fff; }
         
-        .btn-eliminate { position: absolute; right: 12px; top: 12px; background: #ef4444; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn-eliminate:hover { background: #b91c1c; }
+        .btn-eliminate { position: absolute; right: 12px; top: 12px; background: #ef4444; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
         
         .detail-panel { background: #1e293b; border-radius: 12px; padding: 20px; height: 75vh; overflow-y: auto; display: none; }
         .attempt-box { background: #334155; padding: 15px; border-radius: 8px; margin-top: 15px; }
-        video { width: 100%; max-width: 320px; border-radius: 8px; background: #000; margin-top: 10px; display: block; }
-        
         .ans-list { margin-top: 10px; font-size: 13px; background: #1e293b; padding: 12px; border-radius: 6px; }
         .q-row { border-bottom: 1px solid #334155; padding: 8px 0; }
-        .q-row:last-child { border-bottom: none; }
-        .status-correct { color: #4ade80; font-weight: bold; margin-left: 5px; }
-        .status-wrong { color: #f87171; font-weight: bold; margin-left: 5px; }
+        .status-correct { color: #4ade80; font-weight: bold; }
+        .status-wrong { color: #f87171; font-weight: bold; }
     </style>
-
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyC0i6AtzIoLZm-Lz3pLr4UK5snjhER0es",
-            authDomain: "mytestapp-7b70d.firebaseapp.com",
-            databaseURL: "https://mytestapp-7b70d-default-rtdb.firebaseio.com",
-            projectId: "mytestapp-7b70d",
-            storageBucket: "mytestapp-7b70d.firebasestorage.app",
-            messagingSenderId: "380512974619",
-            appId: "1:380512974619:web:a7ecfba6999a600a7cc5be",
-            measurementId: "G-ZMV07B4JY6"
-        };
-        
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-
-        window.addEventListener("load", () => {
-            // पाथ को बदलकर 'online_tests' कर दिया गया है
-            database.ref('online_tests').on('value', (snapshot) => {
-                const data = snapshot.val();
-                renderStudentList(data);
-            });
-        });
-
-        let allStudentsData = {};
-
-        function renderStudentList(students) {
-            allStudentsData = students || {};
-            const listDiv = document.getElementById('student-list-container');
-            listDiv.innerHTML = students ? '' : '<p style="color:#94a3b8;">Abhi koi student connect nahi hai...</p>';
-            
-            for (let id in students) {
-                const student = students[id];
-                const name = student.name || id;
-                const status = student.portal_status || "UNKNOWN";
-                const time = student.last_sync ? new Date(student.last_sync).toLocaleTimeString() : 'N/A';
-                
-                let badgeClass = 'badge opened';
-                if(status.toLowerCase().includes('submitted')) badgeClass = 'badge submitted';
-                if(status === 'ELIMINATED') badgeClass = 'badge eliminated';
-                
-                listDiv.innerHTML += `
-                    <div class="student-card" id="card-${id}" onclick="showStudentDetails('${id}')">
-                        <h4>👤 ${name}</h4>
-                        <p>ID: ${id}</p>
-                        <p>Last Sync: ${time}</p>
-                        <span class="${badgeClass}">${status}</span>
-                        <button class="btn-eliminate" onclick="eliminateStudent(event, '${id}')">Eliminate</button>
-                    </div>
-                `;
-            }
-        }
-
-        function eliminateStudent(event, id) {
-            event.stopPropagation(); 
-            if (confirm(`क्या आप वाकई इस छात्र को बाहर करके इसका सारा डेटा डिलीट करना चाहते हैं?`)) {
-                database.ref('online_tests/' + id).update({
-                    portal_status: "ELIMINATED"
-                }).then(() => {
-                    document.getElementById('detail-panel').style.display = 'none';
-                    setTimeout(() => {
-                        database.ref('online_tests/' + id).remove() 
-                        .then(() => {
-                            alert(`छात्र का डेटा सफलतापूर्वक फ़ायरबेस से डिलीट कर दिया गया है!`);
-                        });
-                    }, 2000);
-                });
-            }
-        }
-
-        function showStudentDetails(id) {
-            if (!allStudentsData[id]) return;
-
-            document.querySelectorAll('.student-card').forEach(c => c.classList.remove('active'));
-            const selectedCard = document.getElementById('card-' + id);
-            if(selectedCard) selectedCard.classList.add('active');
-
-            const detailPanel = document.getElementById('detail-panel');
-            detailPanel.style.display = 'block';
-
-            const student = allStudentsData[id];
-            
-            document.getElementById('det-name').innerText = student.name || id;
-            document.getElementById('det-id').innerText = id;
-
-            const attemptsDiv = document.getElementById('attempts-container');
-            attemptsDiv.innerHTML = '';
-
-            const endTime = student.end_time ? new Date(student.end_time).toLocaleString() : 'Live Chal Raha Hai...';
-            
-            // पुराने और नए दोनों ऑब्जेक्ट फ़ॉर्मैट को एक साथ पार्स करना
-            let answersHtml = '';
-            for (let key in student) {
-                if (key.startsWith('answer_q')) {
-                    const qItem = student[key];
-                    const qNum = key.replace('answer_', '').toUpperCase();
-                    
-                    if (qItem && typeof qItem === 'object') {
-                        const isCorrect = qItem.status === "CORRECT";
-                        answersHtml += `
-                            <div class="q-row">
-                                <b>${qNum}: ${qItem.question}</b><br>
-                                <span>छात्र का जवाब: <span style="color: ${isCorrect ? '#4ade80':'#f87171'}">${qItem.selected_option}</span></span> | 
-                                <span>सही जवाब: <span style="color:#4ade80">${qItem.correct_option}</span></span>
-                                <span class="${isCorrect ? 'status-correct' : 'status-wrong'}">[${qItem.status}]</span>
-                            </div>
-                        `;
-                    } else {
-                        answersHtml += `
-                            <div class="q-row">
-                                <b>${qNum}:</b> छात्र द्वारा चुना गया विकल्प: <span style="color:#38bdf8; font-weight:bold;">${qItem}</span>
-                            </div>
-                        `;
-                    }
-                }
-            }
-
-            attemptsDiv.innerHTML += `
-                <div class="attempt-box">
-                    <h5>📝 Exam Logs</h5>
-                    <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">End Time: ${endTime}</p>
-                    <div class="ans-list">
-                        <strong style="color: #38bdf8; display:block; margin-bottom:5px;">📊 Detailed Answer Sheet:</strong>
-                        ${answersHtml || 'No answers submitted yet'}
-                    </div>
-                    <div style="margin-top:15px;">
-                        <strong>🎥 Live Video Feeds (All Clips Merged With Audio):</strong>
-                        <div id="video-wrapper-${id}">
-                            <p style="font-size:12px; color:#e2e8f0;">Video clips loading...</p>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            setTimeout(() => {
-                mergeAndPlayVideo(student.recorded_video_feed, id);
-            }, 200);
-        }
-
-        function mergeAndPlayVideo(videoFeeds, id) {
-            const wrapper = document.getElementById(`video-wrapper-${id}`);
-            if (!videoFeeds || Object.keys(videoFeeds).length === 0) {
-                wrapper.innerHTML = '<p style="color:#eab308; font-size:13px;">⏳ पहला क्लिप (10 सेकंड) लोड हो रहा है या छात्र ने बंद कर दिया।</p>';
-                return;
-            }
-
-            try {
-                let sortedKeys = Object.keys(videoFeeds).sort((a, b) => {
-                    return parseInt(a.replace('video_part_', '')) - parseInt(b.replace('video_part_', ''));
-                });
-
-                let blobs = [];
-                sortedKeys.forEach(key => {
-                    let base64Data = videoFeeds[key];
-                    if (base64Data) {
-                        let blob = base64ToBlob(base64Data, 'video/webm');
-                        blobs.push(blob);
-                    }
-                });
-
-                let superBlob = new Blob(blobs, { type: 'video/webm' });
-                let videoUrl = URL.createObjectURL(superBlob);
-
-                wrapper.innerHTML = `
-                    <video controls playsinline style="width:100%; max-width:320px; border: 2px solid #38bdf8;">
-                        <source src="${videoUrl}" type="video/webm">
-                    </video>
-                `;
-            } catch (err) {
-                wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ वीडियो प्ले करने में समस्या आई।</p>';
-            }
-        }
-
-        function base64ToBlob(base64, mimeType) {
-            let byteString = atob(base64.split(',')[1]);
-            let ab = new ArrayBuffer(byteString.length);
-            let ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-                ia[i] = byteString.charCodeAt(i);
-            }
-            return new Blob([ab], { type: mimeType });
-        }
-    </script>
 </head>
 <body>
 
 <header>
-    <h2>🛡️ Admin Control Room (Safe Stream & Exact Delete)</h2>
-    <div style="font-size: 14px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px;">
-        🔴 Live Monitoring Active
-    </div>
+    <h2>🛡️ Admin Control Room</h2>
+    <div>🔴 Live Monitoring Active</div>
 </header>
 
 <div class="container" style="margin-top: 20px;">
-    <div>
-        <h3 style="margin-bottom: 10px; font-size: 18px; color: #38bdf8;">👥 Students</h3>
-        <div class="student-list" id="student-list-container">
-            <p style="color:#94a3b8;">Data sync ho raha hai...</p>
-        </div>
-    </div>
-
+    <div class="student-list" id="student-list-container"></div>
     <div class="detail-panel" id="detail-panel">
-        <h3 style="color: #38bdf8; font-size: 22px; border-bottom: 2px solid #334155; padding-bottom: 10px;">
-            🎓 Details (<span id="det-name">---</span>)
-        </h3>
-        <p style="margin-top: 8px; font-size: 14px; color: #94a3b8;">ID: <span id="det-id" style="color:#fff;">---</span></p>
-        
+        <h3 style="color: #38bdf8; font-size: 22px;">🎓 Details (<span id="det-name">---</span>)</h3>
+        <p style="margin-top: 8px; color: #94a3b8;">ID: <span id="det-id">---</span></p>
         <div id="attempts-container"></div>
     </div>
 </div>
 
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyC0i6AtzIoLZm-Lz3pLr4UK5snjhER0es",
+        authDomain: "mytestapp-7b70d.firebaseapp.com",
+        databaseURL: "https://mytestapp-7b70d-default-rtdb.firebaseio.com",
+        projectId: "mytestapp-7b70d",
+        storageBucket: "mytestapp-7b70d.firebasestorage.app",
+        messagingSenderId: "380512974619",
+        appId: "1:380512974619:web:a7ecfba6999a600a7cc5be",
+        measurementId: "G-ZMV07B4JY6"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    let allStudentsData = {};
+
+    database.ref('online_tests').on('value', (snapshot) => {
+        allStudentsData = snapshot.val() || {};
+        const listDiv = document.getElementById('student-list-container');
+        listDiv.innerHTML = '';
+        
+        for (let id in allStudentsData) {
+            const student = allStudentsData[id];
+            listDiv.innerHTML += `
+                <div class="student-card" id="card-${id}" onclick="showStudentDetails('${id}')">
+                    <h4>👤 ${student.name || id}</h4>
+                    <p>ID: ${id}</p>
+                    <span class="badge ${student.portal_status === 'ELIMINATED' ? 'eliminated' : 'submitted'}">${student.portal_status || 'ACTIVE'}</span>
+                    <button class="btn-eliminate" onclick="event.stopPropagation(); database.ref('online_tests/${id}').remove()">Eliminate</button>
+                </div>
+            `;
+        }
+    });
+
+    function showStudentDetails(id) {
+        const student = allStudentsData[id];
+        document.getElementById('detail-panel').style.display = 'block';
+        document.getElementById('det-name').innerText = student.name || id;
+        document.getElementById('det-id').innerText = id;
+
+        let answersHtml = '';
+        for (let key in student) {
+            if (key.startsWith('answer_q')) {
+                const q = student[key];
+                answersHtml += `<div class="q-row"><b>${q.question}</b><br>जवाब: <span class="${q.status === 'CORRECT' ? 'status-correct' : 'status-wrong'}">${q.selected_option}</span></div>`;
+            }
+        }
+
+        document.getElementById('attempts-container').innerHTML = `
+            <div class="attempt-box">
+                <div class="ans-list">${answersHtml}</div>
+                <div id="video-wrapper-${id}" style="margin-top:15px;">वीडियो लोड हो रहा है...</div>
+            </div>
+        `;
+
+        // वीडियो मर्जिंग कॉल
+        if (student.recorded_video_feed) {
+            mergeAndPlayVideo(student.recorded_video_feed, id);
+        } else {
+            document.getElementById(`video-wrapper-${id}`).innerHTML = "कोई वीडियो डेटा नहीं मिला।";
+        }
+    }
+
+    function mergeAndPlayVideo(feeds, id) {
+        const wrapper = document.getElementById(`video-wrapper-${id}`);
+        let sortedKeys = Object.keys(feeds).sort((a, b) => {
+            return parseInt(a.replace('video_part_', '')) - parseInt(b.replace('video_part_', ''));
+        });
+
+        let blobs = sortedKeys.map(k => {
+            let b64 = feeds[k].split(',')[1];
+            let byteChars = atob(b64);
+            let bytes = new Uint8Array(byteChars.length);
+            for(let i=0; i<byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+            return new Blob([bytes], {type: 'video/webm'});
+        });
+        
+        const videoUrl = URL.createObjectURL(new Blob(blobs, {type: 'video/webm'}));
+        wrapper.innerHTML = `<video controls src="${videoUrl}"></video>`;
+    }
+</script>
 </body>
 </html>
