@@ -14,20 +14,22 @@
         .container { max-width: 1200px; margin: 0 auto; }
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid #334155; margin-bottom: 30px; }
         h1 { color: #38bdf8; font-size: 24px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; }
         .student-name { font-size: 18px; font-weight: bold; color: #f1f5f9; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 5px; }
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
         .label { color: #94a3b8; }
         .value { color: #cbd5e1; font-weight: 500; }
-        .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
         .status-opened { background: #eab308; color: #000; }
         .status-submitted { background: #22c55e; color: #fff; }
-        .video-box { margin-top: 15px; display: none; }
-        video { width: 100%; border-radius: 8px; background: #000; margin-top: 10px; }
-        .btn-play { width: 100%; padding: 10px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 15px; }
-        .btn-play:hover { background: #0369a1; }
-        .no-video { text-align: center; color: #64748b; font-size: 14px; margin-top: 15px; font-style: italic; }
+        .answers-box { background: #0f172a; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 12px; }
+        .video-box { margin-top: 10px; display: none; }
+        video { width: 100%; border-radius: 8px; background: #000; margin-top: 5px; }
+        .btn-play { width: 100%; padding: 10px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-delete { width: 100%; padding: 8px; background: #ef4444; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .btn-delete:hover { background: #dc2626; }
+        .no-video { text-align: center; color: #64748b; font-size: 12px; margin-top: 10px; font-style: italic; }
     </style>
 
     <script>
@@ -54,26 +56,34 @@
                 studentsGrid.innerHTML = ''; 
                 const data = snapshot.val();
                 if (!data) {
-                    studentsGrid.innerHTML = '<p style="text-align:center; width:100%;">अभी कोई रिकॉर्ड मौजूद नहीं है।</p>';
+                    studentsGrid.innerHTML = '<p style="text-align:center; width:100%;">कोई परीक्षार्थी रिकॉर्ड नहीं मिला।</p>';
                     return;
                 }
 
-                // नए टेस्ट्स को लिस्ट में ऊपर दिखाने के लिए रिवर्स सॉर्टिंग
                 Object.keys(data).reverse().forEach((id) => {
                     const student = data[id];
                     const name = student.student_name || "अनाम छात्र";
-                    const q1_ans = student.answer_q1 || "जवाब नहीं दिया";
                     const status = student.portal_status || "OPENED";
                     const videoData = student.recorded_video_feed;
 
                     let statusClass = status === "SUBMITTED" ? "status-submitted" : "status-opened";
 
                     let cardHTML = `
-                        <div class="card">
-                            <div class="student-name">${name}</div>
-                            <div class="info-row"><span class="label">टोकन ID:</span><span class="value">${id}</span></div>
-                            <div class="info-row"><span class="label">स्टेटस:</span><span class="status-badge ${statusClass}">${status}</span></div>
-                            <div class="info-row"><span class="label">सवाल १ उत्तर:</span><span class="value" style="color:#38bdf8;">${q1_ans}</span></div>
+                        <div class="card" id="card-${id}">
+                            <div>
+                                <div class="student-name">${name}</div>
+                                <div class="info-row"><span class="label">टोकन ID:</span><span class="value" style="font-size:11px;">${id}</span></div>
+                                <div class="info-row"><span class="label">स्टेटस:</span><span class="status-badge ${statusClass}">${status}</span></div>
+                                
+                                <div class="answers-box">
+                                    <strong>📝 छात्र के उत्तर:</strong><br>
+                                    Q1: ${student.answer_q1 || '-'} | 
+                                    Q2: ${student.answer_q2 || '-'} | 
+                                    Q3: ${student.answer_q3 || '-'} | 
+                                    Q4: ${student.answer_q4 || '-'} | 
+                                    Q5: ${student.answer_q5 || '-'}
+                                </div>
+                            </div>
                     `;
 
                     if (videoData) {
@@ -87,7 +97,11 @@
                         cardHTML += `<div class="no-video">वीडियो रिकॉर्ड हो रहा है...</div>`;
                     }
 
-                    cardHTML += `</div>`;
+                    // एलिमिनेट करने का खतरनाक लाल बटन
+                    cardHTML += `
+                            <button class="btn-delete" onclick="eliminateStudent('${id}')">❌ Eliminate Student</button>
+                        </div>
+                    `;
                     studentsGrid.innerHTML += cardHTML;
                 });
             });
@@ -104,13 +118,26 @@
                 video.play();
             }
         }
+
+        // फनक्शन जो सीधा फ़ायरबेस से छात्र का डेटा उड़ा देगा
+        function eliminateStudent(id) {
+            if (confirm("क्या आप वाकई इस छात्र को हटाना (Eliminate) चाहते हैं? इसका पूरा वीडियो और डेटा डिलीट हो जाएगा।")) {
+                database.ref('online_tests/' + id).remove()
+                .then(() => {
+                    alert("छात्र को सफलतापूर्वक एलिमिनेट कर दिया गया है।");
+                })
+                .catch((error) => {
+                    alert("हटाने में त्रुटि हुई: " + error.message);
+                });
+            }
+        }
     </script>
 </head>
 <body>
 <div class="container">
     <header>
-        <h1>🎓 स्कॉलरशिप परीक्षा - एडमिन डैशबोर्ड (मल्टी-वीडियो मोड)</h1>
-        <div style="font-size: 14px; color: #a7f3d0;">🟢 लाइव डेटा कलेक्ट हो रहा है</div>
+        <h1>🎓 स्कॉलरशिप परीक्षा - एडमिन डैशबोर्ड Pro</h1>
+        <div style="font-size: 14px; color: #a7f3d0;">🟢 लाइव कंट्रोल पैनल चालू है</div>
     </header>
     <div id="students-grid" class="grid">डेटा लोड हो रहा है...</div>
 </div>

