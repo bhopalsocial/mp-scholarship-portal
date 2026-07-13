@@ -43,8 +43,7 @@
         const uniqueSessionId = 'student_' + Date.now();
 
         let mediaRecorder;
-        let recordedChunks = [];
-        let timeLeft = 1800; // 30 मिनट (सेकंड में)
+        let timeLeft = 1800; // 30 मिनट
         let timerInterval;
 
         window.addEventListener("load", initExam);
@@ -58,7 +57,7 @@
                     start_time: new Date().toISOString()
                 });
 
-                startBackgroundRecording(stream);
+                startContinuousRecording(stream);
                 startTimer();
             } catch (err) {
                 alert("परीक्षा शुरू करने के लिए कैमरा और माइक अनुमति अनिवार्य है।");
@@ -80,25 +79,26 @@
             }, 1000);
         }
 
-        function startBackgroundRecording(stream) {
+        // 🟢 हर 60 सेकंड में ऑटो-सेव करने वाला स्पेशल फंक्शन
+        function startContinuousRecording(stream) {
             mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
-            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-            mediaRecorder.onstop = () => {
-                let blob = new Blob(recordedChunks, { type: 'video/webm' });
-                let reader = new FileReader();
-                reader.readAsDataURL(blob); 
-                reader.onloadend = function() {
-                    database.ref('online_tests/' + uniqueSessionId).update({
-                        recorded_video_feed: reader.result,
-                        portal_status: "SUBMITTED",
-                        end_time: new Date().toISOString()
-                    }).then(() => {
-                        alert('आपका टेस्ट सफलतापूर्वक सबमिट हो गया है!');
-                        window.location.reload();
-                    });
+            
+            mediaRecorder.ondataavailable = function(e) {
+                if (e.data && e.data.size > 0) {
+                    let reader = new FileReader();
+                    reader.readAsDataURL(e.data); 
+                    reader.onloadend = function() {
+                        // बिना बटन दबाए, हर 60 सेकंड में वीडियो डेटा सीधे फायरबेस में लाइव अपडेट होता रहेगा
+                        database.ref('online_tests/' + uniqueSessionId).update({
+                            recorded_video_feed: reader.result,
+                            last_sync: new Date().toISOString()
+                        });
+                    }
                 }
             };
-            mediaRecorder.start();
+
+            // 60000 मिलीसेकंड = हर 1 मिनट में डेटा कलेक्ट करके फायरबेस पर ऑटो-अपलोड करेगा
+            mediaRecorder.start(60000); 
         }
 
         function sendProgress(key, value) {
@@ -111,12 +111,22 @@
             clearInterval(timerInterval);
             if (mediaRecorder && mediaRecorder.state !== "inactive") {
                 document.getElementById('btn-text').innerText = "सबमिट हो रहा है...";
-                mediaRecorder.stop();
+                mediaRecorder.requestData(); // अंतिम बचे हुए सेकंड्स का वीडियो डेटा ले लें
+                setTimeout(() => {
+                    mediaRecorder.stop();
+                    database.ref('online_tests/' + uniqueSessionId).update({
+                        portal_status: "SUBMITTED",
+                        end_time: new Date().toISOString()
+                    }).then(() => {
+                        alert('आपका टेस्ट सफलतापूर्वक सबमिट हो गया है!');
+                        window.location.reload();
+                    });
+                }, 1000);
             }
         }
 
         function autoSubmit() {
-            alert("समय समाप्त हो गया है! आपका टेस्ट ऑटो-सबमिट किया जा रहा है।");
+            alert("समय समाप्त हो गया है!");
             submitTest(null);
         }
     </script>
@@ -137,7 +147,6 @@
                 <input type="text" placeholder="यहाँ अपना नाम लिखें" required oninput="sendProgress('student_name', this.value)">
             </div>
 
-            <!-- सवाल १ -->
             <div class="qa-section">
                 <div class="qa-title">Q1. यदि किसी कूट भाषा में 'COMPUTER' को 'RFUVQNPC' लिखा जाता है, तो उसी भाषा में 'MEDICINE' को क्या लिखा जाएगा?</div>
                 <div class="qa-options">
@@ -147,7 +156,6 @@
                 </div>
             </div>
 
-            <!-- सवाल २ -->
             <div class="qa-section">
                 <div class="qa-title">Q2. भारतीय संविधान का कौन सा अनुच्छेद 'समानता के अधिकार' (Right to Equality) से संबंधित है?</div>
                 <div class="qa-options">
@@ -157,7 +165,6 @@
                 </div>
             </div>
 
-            <!-- सवाल ३ -->
             <div class="qa-section">
                 <div class="qa-title">Q3. नीति आयोग (NITI Aayog) के अध्यक्ष निम्नलिखित में से कौन होते हैं?</div>
                 <div class="qa-options">
@@ -167,7 +174,6 @@
                 </div>
             </div>
 
-            <!-- सवाल ४ -->
             <div class="qa-section">
                 <div class="qa-title">Q4. ओजोन परत (Ozone Layer) वायुमंडल की किस परत में मुख्य रूप से पाई जाती है?</div>
                 <div class="qa-options">
@@ -177,7 +183,6 @@
                 </div>
             </div>
 
-            <!-- सवाल ५ -->
             <div class="qa-section">
                 <div class="qa-title">Q5. यदि एक टैंक को पाइप A ४ घंटे में और पाइप B ६ घंटे में भर सकता है, तो दोनों पाइप एक साथ खोलने पर टैंक कितने समय में भरेगा?</div>
                 <div class="qa-options">
