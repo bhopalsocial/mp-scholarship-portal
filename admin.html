@@ -11,21 +11,25 @@
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
         body { background: #0f172a; color: #f8fafc; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
         header { grid-column: 1 / -1; background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; }
         .student-list { background: #1e293b; border-radius: 12px; padding: 15px; height: 75vh; overflow-y: auto; }
-        .student-card { background: #334155; padding: 12px; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; border-left: 4px solid #64748b; }
+        .student-card { background: #334155; padding: 12px; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; border-left: 4px solid #64748b; position: relative; }
         .student-card:hover { background: #475569; }
         .student-card.active { border-left-color: #38bdf8; background: #475569; }
-        .student-card h4 { font-size: 16px; margin-bottom: 4px; }
+        .student-card h4 { font-size: 16px; margin-bottom: 4px; padding-right: 80px; }
         .student-card p { font-size: 12px; color: #cbd5e1; }
         .badge { display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; margin-top: 5px; }
         .badge.opened { background: #eab308; color: #000; }
         .badge.submitted { background: #22c55e; color: #fff; }
+        .badge.eliminated { background: #ef4444; color: #fff; }
+        
+        .btn-eliminate { position: absolute; right: 12px; top: 12px; background: #ef4444; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-eliminate:hover { background: #b91c1c; }
         
         .detail-panel { background: #1e293b; border-radius: 12px; padding: 20px; height: 75vh; overflow-y: auto; display: none; }
         .attempt-box { background: #334155; padding: 15px; border-radius: 8px; margin-top: 15px; }
-        video { width: 100%; max-width: 400px; border-radius: 8px; background: #000; margin-top: 10px; display: block; }
+        video { width: 100%; max-width: 320px; border-radius: 8px; background: #000; margin-top: 10px; display: block; }
         .ans-list { margin-top: 10px; font-size: 14px; background: #1e293b; padding: 10px; border-radius: 6px; }
     </style>
 
@@ -64,7 +68,9 @@
                 const status = profile.portal_status || "UNKNOWN";
                 const time = profile.last_active_at ? new Date(profile.last_active_at).toLocaleTimeString() : 'N/A';
                 
-                let badgeClass = status.toLowerCase().includes('submitted') ? 'badge submitted' : 'badge opened';
+                let badgeClass = 'badge opened';
+                if(status.toLowerCase().includes('submitted')) badgeClass = 'badge submitted';
+                if(status === 'ELIMINATED') badgeClass = 'badge eliminated';
                 
                 listDiv.innerHTML += `
                     <div class="student-card" id="card-${id}" onclick="showStudentDetails('${id}')">
@@ -72,12 +78,42 @@
                         <p>ID: ${id}</p>
                         <p>Last Active: ${time}</p>
                         <span class="${badgeClass}">${status}</span>
+                        <button class="btn-eliminate" onclick="eliminateStudent(event, '${id}')">Eliminate</button>
                     </div>
                 `;
             }
         }
 
+        // विकल्प २: छात्र को बाहर करने और उसका पूरा डेटा फ़ायरबेस से तुरंत डिलीट करने का फंक्शन
+        function eliminateStudent(event, id) {
+            event.stopPropagation(); // कार्ड क्लिक इवेंट को रोकने के लिए
+            
+            if (confirm(`चेतावनी: क्या आप वाकई इस छात्र (ID: ${id}) को बाहर करके उसका पूरा वीडियो और डेटा हमेशा के लिए डिलीट करना चाहते हैं?`)) {
+                
+                // 1. पहले छात्र के मोबाइल पर एलिमिनेट का सिग्नल भेजें ताकि उसका टेस्ट स्क्रीन पर ही ब्लॉक हो जाए
+                database.ref('students/' + id + '/profile').update({
+                    portal_status: "ELIMINATED"
+                }).then(() => {
+                    
+                    // विवरण पैनल को छुपाएं अगर वही छात्र खुला हुआ था
+                    document.getElementById('detail-panel').style.display = 'none';
+
+                    // 2. छात्र को स्क्रीन पर मैसेज देखने के लिए 2 सेकंड दें, फिर डेटाबेस से सब साफ कर दें
+                    setTimeout(() => {
+                        database.ref('students/' + id).remove() 
+                        .then(() => {
+                            alert(`छात्र ${id} का पूरा वीडियो और डेटा फ़ायरबेस से हमेशा के लिए मिटा दिया गया है। आपकी स्टोरेज स्पेस खाली हो चुकी है!`);
+                        });
+                    }, 2000);
+                    
+                });
+            }
+        }
+
         function showStudentDetails(id) {
+            // अगर छात्र डिलीट हो रहा है तो डिटेल्स लोड न करें
+            if (!allStudentsData[id]) return;
+
             document.querySelectorAll('.student-card').forEach(c => c.classList.remove('active'));
             const selectedCard = document.getElementById('card-' + id);
             if(selectedCard) selectedCard.classList.add('active');
@@ -122,7 +158,7 @@
                         <div style="margin-top:10px;">
                             <strong>🎥 Live Video Feeds (All Clips Merged):</strong>
                             <div id="video-wrapper-${attId}">
-                                <p style="font-size:12px; color:#e2e8f0;">Video clips loading & merging...</p>
+                                <p style="font-size:12px; color:#e2e8f0;">Video clips receive ho rahe hain...</p>
                             </div>
                         </div>
                     </div>
@@ -157,9 +193,8 @@
                 let videoUrl = URL.createObjectURL(superBlob);
 
                 wrapper.innerHTML = `
-                    <video controls playsinline autoplay muted style="width:100%; max-width:320px;">
+                    <video controls playsinline style="width:100%; max-width:320px;">
                         <source src="${videoUrl}" type="video/webm">
-                        Browser video support nahi karta.
                     </video>
                 `;
             } catch (err) {
@@ -182,9 +217,9 @@
 <body>
 
 <header>
-    <h2>🛡️ Admin Control Room (Clips Mode)</h2>
+    <h2>🛡️ Admin Control Room (Auto-Delete Space Saving Mode)</h2>
     <div style="font-size: 14px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px;">
-        🔴 Live Stream Synced
+        🔴 Live Monitoring Active
     </div>
 </header>
 
