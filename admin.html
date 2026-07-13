@@ -84,25 +84,24 @@
             }
         }
 
-        // विकल्प २: छात्र को बाहर करने और उसका पूरा डेटा फ़ायरबेस से तुरंत डिलीट करने का फंक्शन
+        // सिर्फ और सिर्फ इसी एक छात्र का डेटा डिलीट करने का सिस्टम
         function eliminateStudent(event, id) {
-            event.stopPropagation(); // कार्ड क्लिक इवेंट को रोकने के लिए
+            event.stopPropagation(); 
             
-            if (confirm(`चेतावनी: क्या आप वाकई इस छात्र (ID: ${id}) को बाहर करके उसका पूरा वीडियो और डेटा हमेशा के लिए डिलीट करना चाहते हैं?`)) {
+            if (confirm(`क्या आप वाकई इस छात्र (ID: ${id}) को बाहर करके इसका सारा डेटा हमेशा के लिए डिलीट करना चाहते हैं?`)) {
                 
-                // 1. पहले छात्र के मोबाइल पर एलिमिनेट का सिग्नल भेजें ताकि उसका टेस्ट स्क्रीन पर ही ब्लॉक हो जाए
+                // 1. छात्र को ब्लॉक सिग्नल भेजें
                 database.ref('students/' + id + '/profile').update({
                     portal_status: "ELIMINATED"
                 }).then(() => {
                     
-                    // विवरण पैनल को छुपाएं अगर वही छात्र खुला हुआ था
                     document.getElementById('detail-panel').style.display = 'none';
 
-                    // 2. छात्र को स्क्रीन पर मैसेज देखने के लिए 2 सेकंड दें, फिर डेटाबेस से सब साफ कर दें
+                    // 2. ठीक 2 सेकंड बाद सिर्फ इसी छात्र की ID का नोड (.remove) करें
                     setTimeout(() => {
                         database.ref('students/' + id).remove() 
                         .then(() => {
-                            alert(`छात्र ${id} का पूरा वीडियो और डेटा फ़ायरबेस से हमेशा के लिए मिटा दिया गया है। आपकी स्टोरेज स्पेस खाली हो चुकी है!`);
+                            alert(`छात्र ${id} का डेटा फ़ायरबेस से सुरक्षित डिलीट कर दिया गया है!`);
                         });
                     }, 2000);
                     
@@ -111,7 +110,6 @@
         }
 
         function showStudentDetails(id) {
-            // अगर छात्र डिलीट हो रहा है तो डिटेल्स लोड न करें
             if (!allStudentsData[id]) return;
 
             document.querySelectorAll('.student-card').forEach(c => c.classList.remove('active'));
@@ -158,7 +156,7 @@
                         <div style="margin-top:10px;">
                             <strong>🎥 Live Video Feeds (All Clips Merged):</strong>
                             <div id="video-wrapper-${attId}">
-                                <p style="font-size:12px; color:#e2e8f0;">Video clips receive ho rahe hain...</p>
+                                <p style="font-size:12px; color:#e2e8f0;">Video clips loading...</p>
                             </div>
                         </div>
                     </div>
@@ -172,8 +170,9 @@
 
         function mergeAndPlayVideo(videoFeeds, attId) {
             const wrapper = document.getElementById(`video-wrapper-${attId}`);
-            if (!videoFeeds) {
-                wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ Video clips abhi tak receive nahi hue hain.</p>';
+            
+            if (!videoFeeds || Object.keys(videoFeeds).length === 0) {
+                wrapper.innerHTML = '<p style="color:#eab308; font-size:13px;">⏳ पहला क्लिप (10 सेकंड) लोड हो रहा है या छात्र ने समय से पहले बंद कर दिया।</p>';
                 return;
             }
 
@@ -185,21 +184,28 @@
                 let blobs = [];
                 sortedKeys.forEach(key => {
                     let base64Data = videoFeeds[key];
-                    let blob = base64ToBlob(base64Data, 'video/webm');
-                    blobs.push(blob);
+                    if (base64Data) {
+                        let blob = base64ToBlob(base64Data, 'video/webm');
+                        blobs.push(blob);
+                    }
                 });
+
+                if (blobs.length === 0) {
+                    wrapper.innerHTML = '<p style="color:#eab308; font-size:13px;">⏳ वीडियो डेटा सिंक हो रहा है...</p>';
+                    return;
+                }
 
                 let superBlob = new Blob(blobs, { type: 'video/webm' });
                 let videoUrl = URL.createObjectURL(superBlob);
 
                 wrapper.innerHTML = `
-                    <video controls playsinline style="width:100%; max-width:320px;">
+                    <video controls playsinline style="width:100%; max-width:320px; border: 2px solid #38bdf8;">
                         <source src="${videoUrl}" type="video/webm">
                     </video>
                 `;
             } catch (err) {
                 console.error(err);
-                wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ Video play karne mein dikkat aayi.</p>';
+                wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ वीडियो प्ले करने में समस्या आई।</p>';
             }
         }
 
@@ -217,7 +223,7 @@
 <body>
 
 <header>
-    <h2>🛡️ Admin Control Room (Auto-Delete Space Saving Mode)</h2>
+    <h2>🛡️ Admin Control Room (Safe Stream & Exact Delete)</h2>
     <div style="font-size: 14px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px;">
         🔴 Live Monitoring Active
     </div>
