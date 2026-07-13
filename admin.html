@@ -25,13 +25,12 @@
         .status-submitted { background: #22c55e; color: #fff; }
         .video-box { margin-top: 15px; display: none; }
         video { width: 100%; border-radius: 8px; background: #000; margin-top: 10px; }
-        .btn-play { width: 100%; padding: 10px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 15px; transition: background 0.2s; }
+        .btn-play { width: 100%; padding: 10px; background: #0284c7; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 15px; }
         .btn-play:hover { background: #0369a1; }
         .no-video { text-align: center; color: #64748b; font-size: 14px; margin-top: 15px; font-style: italic; }
     </style>
 
     <script>
-        // आपका वही पुराना फायरबेस क्रेडेंशियल यहाँ है
         const firebaseConfig = {
             apiKey: "AIzaSyC0i6AtzIoLZm-Lz3pLr4UK5snjhER0es",
             authDomain: "mytestapp-7b70d.firebaseapp.com",
@@ -51,23 +50,20 @@
         function fetchStudentsData() {
             const studentsGrid = document.getElementById('students-grid');
             
-            // डेटाबेस से लाइव डेटा सुनना (Listen)
             database.ref('online_tests').on('value', (snapshot) => {
-                studentsGrid.innerHTML = ''; // पुराना डेटा साफ़ करना
-                
+                studentsGrid.innerHTML = ''; 
                 const data = snapshot.val();
                 if (!data) {
-                    studentsGrid.innerHTML = '<p style="text-align:center; width:100%;">अभी तक किसी छात्र ने टेस्ट शुरू नहीं किया है।</p>';
+                    studentsGrid.innerHTML = '<p style="text-align:center; width:100%;">अभी कोई रिकॉर्ड मौजूद नहीं है।</p>';
                     return;
                 }
 
-                // हर एक छात्र के लिए कार्ड बनाना
-                Object.keys(data).forEach((id) => {
+                // नए टेस्ट्स को लिस्ट में ऊपर दिखाने के लिए रिवर्स सॉर्टिंग
+                Object.keys(data).reverse().forEach((id) => {
                     const student = data[id];
-                    const name = student.student_name || "Unknown Student";
-                    const q1_ans = student.answer_q1 || "Not Answered";
-                    const status = student.portal_status || "UNKNOWN";
-                    const last_seen = student.last_seen ? new Date(student.last_seen).toLocaleTimeString() : "N/A";
+                    const name = student.student_name || "अनाम छात्र";
+                    const q1_ans = student.answer_q1 || "जवाब नहीं दिया";
+                    const status = student.portal_status || "OPENED";
                     const videoData = student.recorded_video_feed;
 
                     let statusClass = status === "SUBMITTED" ? "status-submitted" : "status-opened";
@@ -75,34 +71,20 @@
                     let cardHTML = `
                         <div class="card">
                             <div class="student-name">${name}</div>
-                            <div class="info-row">
-                                <span class="label">ID:</span>
-                                <span class="value">${id}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="label">स्टेटस:</span>
-                                <span class="status-badge ${statusClass}">${status}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="label">आखिरी बार देखा:</span>
-                                <span class="value">${last_seen}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="label">सवाल १ का जवाब:</span>
-                                <span class="value" style="color:#38bdf8; font-weight:bold;">${q1_ans}</span>
-                            </div>
+                            <div class="info-row"><span class="label">टोकन ID:</span><span class="value">${id}</span></div>
+                            <div class="info-row"><span class="label">स्टेटस:</span><span class="status-badge ${statusClass}">${status}</span></div>
+                            <div class="info-row"><span class="label">सवाल १ उत्तर:</span><span class="value" style="color:#38bdf8;">${q1_ans}</span></div>
                     `;
 
-                    // अगर वीडियो डेटा मौजूद है तो प्ले बटन दिखाएं, नहीं तो मैसेज दिखाएं
                     if (videoData) {
                         cardHTML += `
-                            <button class="btn-play" onclick="toggleVideo('${id}')">🎬 वीडियो प्ले करें</button>
+                            <button class="btn-play" onclick="toggleVideo('${id}')">🎬 वीडियो देखें</button>
                             <div id="video-container-${id}" class="video-box">
                                 <video id="video-${id}" controls src="${videoData}"></video>
                             </div>
                         `;
                     } else {
-                        cardHTML += `<div class="no-video">अभी वीडियो उपलब्ध नहीं है (टेस्ट चल रहा है...)</div>`;
+                        cardHTML += `<div class="no-video">वीडियो रिकॉर्ड हो रहा है...</div>`;
                     }
 
                     cardHTML += `</div>`;
@@ -114,7 +96,6 @@
         function toggleVideo(id) {
             const container = document.getElementById(`video-container-${id}`);
             const video = document.getElementById(`video-${id}`);
-            
             if (container.style.display === "block") {
                 container.style.display = "none";
                 video.pause();
@@ -126,17 +107,12 @@
     </script>
 </head>
 <body>
-
 <div class="container">
     <header>
-        <h1>🎓 स्कॉलरशिप परीक्षा - एडमिन डैशबोर्ड (Live)</h1>
-        <div style="font-size: 14px; color: #a7f3d0;">🟢 लाइव अपडेट चालू है</div>
+        <h1>🎓 स्कॉलरशिप परीक्षा - एडमिन डैशबोर्ड (मल्टी-वीडियो मोड)</h1>
+        <div style="font-size: 14px; color: #a7f3d0;">🟢 लाइव डेटा कलेक्ट हो रहा है</div>
     </header>
-
-    <div id="students-grid" class="grid">
-        <p style="text-align:center; width:100%;">डेटा लोड हो रहा है...</p>
-    </div>
+    <div id="students-grid" class="grid">डेटा लोड हो रहा है...</div>
 </div>
-
 </body>
 </html>
