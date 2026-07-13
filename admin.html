@@ -30,7 +30,13 @@
         .detail-panel { background: #1e293b; border-radius: 12px; padding: 20px; height: 75vh; overflow-y: auto; display: none; }
         .attempt-box { background: #334155; padding: 15px; border-radius: 8px; margin-top: 15px; }
         video { width: 100%; max-width: 320px; border-radius: 8px; background: #000; margin-top: 10px; display: block; }
-        .ans-list { margin-top: 10px; font-size: 14px; background: #1e293b; padding: 10px; border-radius: 6px; }
+        
+        /* आंसर शीट बॉक्स स्टाइल */
+        .ans-list { margin-top: 10px; font-size: 13px; background: #1e293b; padding: 12px; border-radius: 6px; }
+        .q-row { border-bottom: 1px solid #334155; padding: 8px 0; }
+        .q-row:last-child { border-bottom: none; }
+        .status-correct { color: #4ade80; font-weight: bold; margin-left: 5px; }
+        .status-wrong { color: #f87171; font-weight: bold; margin-left: 5px; }
     </style>
 
     <script>
@@ -84,27 +90,19 @@
             }
         }
 
-        // सिर्फ और सिर्फ इसी एक छात्र का डेटा डिलीट करने का सिस्टम
         function eliminateStudent(event, id) {
             event.stopPropagation(); 
-            
-            if (confirm(`क्या आप वाकई इस छात्र (ID: ${id}) को बाहर करके इसका सारा डेटा हमेशा के लिए डिलीट करना चाहते हैं?`)) {
-                
-                // 1. छात्र को ब्लॉक सिग्नल भेजें
+            if (confirm(`क्या आप वाकई इस छात्र को बाहर करके इसका सारा डेटा डिलीट करना चाहते हैं?`)) {
                 database.ref('students/' + id + '/profile').update({
                     portal_status: "ELIMINATED"
                 }).then(() => {
-                    
                     document.getElementById('detail-panel').style.display = 'none';
-
-                    // 2. ठीक 2 सेकंड बाद सिर्फ इसी छात्र की ID का नोड (.remove) करें
                     setTimeout(() => {
                         database.ref('students/' + id).remove() 
                         .then(() => {
-                            alert(`छात्र ${id} का डेटा फ़ायरबेस से सुरक्षित डिलीट कर दिया गया है!`);
+                            alert(`छात्र का डेटा डिलीट कर दिया गया है!`);
                         });
                     }, 2000);
-                    
                 });
             }
         }
@@ -140,8 +138,23 @@
                 
                 let answersHtml = '';
                 if (attempt.answers) {
-                    for (let q in attempt.answers) {
-                        answersHtml += `<div><b>${q}:</b> ${attempt.answers[q]}</div>`;
+                    for (let qKey in attempt.answers) {
+                        const qItem = attempt.answers[qKey];
+                        
+                        // पुराने स्ट्रक्चर और नए स्ट्रक्चर दोनों को सपोर्ट करने के लिए बैकअप चेक
+                        if (typeof qItem === 'object') {
+                            const isCorrect = qItem.status === "CORRECT";
+                            answersHtml += `
+                                <div class="q-row">
+                                    <b>${qKey}: ${qItem.question}</b><br>
+                                    <span>छात्र का जवाब: <span style="color: ${isCorrect ? '#4ade80':'#f87171'}">${qItem.selected_option}</span></span> | 
+                                    <span>सही जवाब: <span style="color:#4ade80">${qItem.correct_option}</span></span>
+                                    <span class="${isCorrect ? 'status-correct' : 'status-wrong'}">[${qItem.status}]</span>
+                                </div>
+                            `;
+                        } else {
+                            answersHtml += `<div class="q-row"><b>${qKey}:</b> ${qItem}</div>`;
+                        }
                     }
                 }
 
@@ -150,10 +163,10 @@
                         <h5>📝 Attempt ID: ${attId}</h5>
                         <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">Time: ${time}</p>
                         <div class="ans-list">
-                            <strong>Answers:</strong>
+                            <strong style="color: #38bdf8; display:block; margin-bottom:5px;">📊 Detailed Answer Sheet:</strong>
                             ${answersHtml || 'No answer yet'}
                         </div>
-                        <div style="margin-top:10px;">
+                        <div style="margin-top:15px;">
                             <strong>🎥 Live Video Feeds (All Clips Merged):</strong>
                             <div id="video-wrapper-${attId}">
                                 <p style="font-size:12px; color:#e2e8f0;">Video clips loading...</p>
@@ -170,9 +183,8 @@
 
         function mergeAndPlayVideo(videoFeeds, attId) {
             const wrapper = document.getElementById(`video-wrapper-${attId}`);
-            
             if (!videoFeeds || Object.keys(videoFeeds).length === 0) {
-                wrapper.innerHTML = '<p style="color:#eab308; font-size:13px;">⏳ पहला क्लिप (10 सेकंड) लोड हो रहा है या छात्र ने समय से पहले बंद कर दिया।</p>';
+                wrapper.innerHTML = '<p style="color:#eab308; font-size:13px;">⏳ पहला क्लिप (10 सेकंड) लोड हो रहा है या छात्र ने बंद कर दिया।</p>';
                 return;
             }
 
@@ -190,11 +202,6 @@
                     }
                 });
 
-                if (blobs.length === 0) {
-                    wrapper.innerHTML = '<p style="color:#eab308; font-size:13px;">⏳ वीडियो डेटा सिंक हो रहा है...</p>';
-                    return;
-                }
-
                 let superBlob = new Blob(blobs, { type: 'video/webm' });
                 let videoUrl = URL.createObjectURL(superBlob);
 
@@ -204,7 +211,6 @@
                     </video>
                 `;
             } catch (err) {
-                console.error(err);
                 wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ वीडियो प्ले करने में समस्या आई।</p>';
             }
         }

