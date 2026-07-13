@@ -45,7 +45,6 @@
         const database = firebase.database();
 
         window.addEventListener("load", () => {
-            // लाइव छात्रों का डेटा लोड करना
             database.ref('students').on('value', (snapshot) => {
                 const data = snapshot.val();
                 renderStudentList(data);
@@ -57,7 +56,7 @@
         function renderStudentList(students) {
             allStudentsData = students || {};
             const listDiv = document.getElementById('student-list-container');
-            listDiv.innerHTML = students ? '' : '<p style="color:#94a3b8;">अभी तक कोई छात्र कनेक्ट नहीं हुआ है...</p>';
+            listDiv.innerHTML = students ? '' : '<p style="color:#94a3b8;">Abhi koi student connect nahi hai...</p>';
             
             for (let id in students) {
                 const profile = students[id].profile || {};
@@ -65,13 +64,13 @@
                 const status = profile.portal_status || "UNKNOWN";
                 const time = profile.last_active_at ? new Date(profile.last_active_at).toLocaleTimeString() : 'N/A';
                 
-                let badgeClass = status.toLowerCase() === 'submitted' ? 'badge submitted' : 'badge opened';
+                let badgeClass = status.toLowerCase().includes('submitted') ? 'badge submitted' : 'badge opened';
                 
                 listDiv.innerHTML += `
                     <div class="student-card" id="card-${id}" onclick="showStudentDetails('${id}')">
                         <h4>👤 ${name}</h4>
                         <p>ID: ${id}</p>
-                        <p>आखिरी गतिविधि: ${time}</p>
+                        <p>Last Active: ${time}</p>
                         <span class="${badgeClass}">${status}</span>
                     </div>
                 `;
@@ -79,9 +78,9 @@
         }
 
         function showStudentDetails(id) {
-            // एक्टिव क्लास सेट करना
             document.querySelectorAll('.student-card').forEach(c => c.classList.remove('active'));
-            document.getElementById('card-' + id).classList.add('active');
+            const selectedCard = document.getElementById('card-' + id);
+            if(selectedCard) selectedCard.classList.add('active');
 
             const detailPanel = document.getElementById('detail-panel');
             detailPanel.style.display = 'block';
@@ -97,14 +96,13 @@
 
             const attempts = student.test_attempts;
             if (!attempts) {
-                attemptsDiv.innerHTML = '<p style="color:#94a3b8; margin-top:10px;">इस छात्र ने अभी तक कोई टेस्ट जमा नहीं किया है।</p>';
+                attemptsDiv.innerHTML = '<p style="color:#94a3b8; margin-top:10px;">Is student ne test start nahi kiya.</p>';
                 return;
             }
 
-            // छात्र के सभी टेस्ट प्रयासों को लूप करना
             for (let attId in attempts) {
                 const attempt = attempts[attId];
-                const time = attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString() : 'चल रहा है...';
+                const time = attempt.submitted_at ? new Date(attempt.submitted_at).toLocaleString() : 'Live Chal Raha Hai...';
                 
                 let answersHtml = '';
                 if (attempt.answers) {
@@ -115,33 +113,31 @@
 
                 attemptsDiv.innerHTML += `
                     <div class="attempt-box">
-                        <h5>📝 टेस्ट प्रयास कोड: ${attId}</h5>
-                        <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">समय: ${time}</p>
+                        <h5>📝 Attempt ID: ${attId}</h5>
+                        <p style="font-size:12px; color:#cbd5e1; margin-bottom:8px;">Time: ${time}</p>
                         <div class="ans-list">
-                            <strong>जवाब:</strong>
-                            ${answersHtml || 'कोई उत्तर नहीं'}
+                            <strong>Answers:</strong>
+                            ${answersHtml || 'No answer yet'}
                         </div>
                         <div style="margin-top:10px;">
-                            <strong>🎥 लाइव वीडियो और ऑडियो फीड:</strong>
+                            <strong>🎥 Live Video Feeds (All Clips Merged):</strong>
                             <div id="video-wrapper-${attId}">
-                                <p style="font-size:12px; color:#e2e8f0;">वीडियो लोड हो रहा है...</p>
+                                <p style="font-size:12px; color:#e2e8f0;">Video clips loading & merging...</p>
                             </div>
                         </div>
                     </div>
                 `;
 
-                // बैकग्राउंड में वीडियो के टुकड़ों को मर्ज करके प्लेयर में लोड करना
                 setTimeout(() => {
                     mergeAndPlayVideo(attempt.live_video_feeds, attId);
-                }, 100);
+                }, 200);
             }
         }
 
-        // टुकड़ों में आए हुए Base64 वीडियो को मिलाकर एक सिंगल प्लेएबल वीडियो बनाने का जादुई फंक्शन
         function mergeAndPlayVideo(videoFeeds, attId) {
             const wrapper = document.getElementById(`video-wrapper-${attId}`);
             if (!videoFeeds) {
-                wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ वीडियो फीड उपलब्ध नहीं है (या छात्र ने टैब तुरंत बंद कर दिया)।</p>';
+                wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ Video clips abhi tak receive nahi hue hain.</p>';
                 return;
             }
 
@@ -161,14 +157,14 @@
                 let videoUrl = URL.createObjectURL(superBlob);
 
                 wrapper.innerHTML = `
-                    <video controls playsinline>
+                    <video controls playsinline autoplay muted style="width:100%; max-width:320px;">
                         <source src="${videoUrl}" type="video/webm">
-                        आपका ब्राउज़र वीडियो सपोर्ट नहीं करता।
+                        Browser video support nahi karta.
                     </video>
                 `;
             } catch (err) {
                 console.error(err);
-                wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ वीडियो रेंडर करने में एरर आया।</p>';
+                wrapper.innerHTML = '<p style="color:#ef4444; font-size:12px;">⚠️ Video play karne mein dikkat aayi.</p>';
             }
         }
 
@@ -186,28 +182,27 @@
 <body>
 
 <header>
-    <h2>🛡️ परीक्षा नियंत्रण कक्ष (Admin Control Room)</h2>
+    <h2>🛡️ Admin Control Room (Clips Mode)</h2>
     <div style="font-size: 14px; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px;">
-        🔴 लाइव मॉनिटरिंग चालू है
+        🔴 Live Stream Synced
     </div>
 </header>
 
 <div class="container" style="margin-top: 20px;">
     <div>
-        <h3 style="margin-bottom: 10px; font-size: 18px; color: #38bdf8;">👥 छात्रों की सूची</h3>
+        <h3 style="margin-bottom: 10px; font-size: 18px; color: #38bdf8;">👥 Students</h3>
         <div class="student-list" id="student-list-container">
-            <p style="color:#94a3b8;">डेटा सिंक हो रहा है...</p>
+            <p style="color:#94a3b8;">Data sync ho raha hai...</p>
         </div>
     </div>
 
     <div class="detail-panel" id="detail-panel">
         <h3 style="color: #38bdf8; font-size: 22px; border-bottom: 2px solid #334155; padding-bottom: 10px;">
-            🎓 छात्र विवरण (<span id="det-name">---</span>)
+            🎓 Details (<span id="det-name">---</span>)
         </h3>
-        <p style="margin-top: 8px; font-size: 14px; color: #94a3b8;">यूनिक आईडी: <span id="det-id" style="color:#fff;">---</span></p>
+        <p style="margin-top: 8px; font-size: 14px; color: #94a3b8;">ID: <span id="det-id" style="color:#fff;">---</span></p>
         
-        <div id="attempts-container">
-            </div>
+        <div id="attempts-container"></div>
     </div>
 </div>
 
