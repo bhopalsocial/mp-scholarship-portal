@@ -26,7 +26,7 @@
 <body>
 
     <header>
-        <h2>🛡️ Admin Control Room (Safe Stream & Exact Delete)</h2>
+        <h2>🛡️ Admin Control Room (Safe Stream)</h2>
     </header>
 
     <div class="grid">
@@ -81,7 +81,7 @@
 
         function eliminateStudent(event, id) {
             event.stopPropagation();
-            if (confirm(`Kya aap waqai is student ko eliminate karke Firebase se sara data delete karna chahte hain?`)) {
+            if (confirm(`Kya aap waqai is student ko eliminate karke Firebase se data delete karna chahte hain?`)) {
                 db.ref('online_tests/' + id).remove()
                 .then(() => {
                     alert(`Student ka data successfully delete kar diya gaya hai!`);
@@ -121,54 +121,26 @@
             if (student.recorded_video_feed && Object.keys(student.recorded_video_feed).length > 0) {
                 let feeds = student.recorded_video_feed;
                 
-                // Numbers के आधार पर सही क्रम में सॉर्ट करना
                 let sortedKeys = Object.keys(feeds).sort((a, b) => {
-                    let numA = parseInt(a.replace(/[^\d]/g, ''), 10) || 0;
-                    let numB = parseInt(b.replace(/[^\d]/g, ''), 10) || 0;
-                    return numA - numB;
+                    return parseInt(a.replace('video_part_', '')) - parseInt(b.replace('video_part_', ''));
                 });
 
                 try {
-                    let totalLength = 0;
-                    let chunks = [];
-
-                    // 1. सभी chunks को डिकोड करके बाइनरी एरे बनाना और कुल लंबाई जोड़ना
-                    sortedKeys.forEach(k => {
-                        let base64Str = feeds[k];
-                        if (base64Str) {
-                            let parts = base64Str.split(',');
-                            let rawB64 = parts.length > 1 ? parts[1] : parts[0];
-                            let bin = atob(rawB64);
-                            let arr = new Uint8Array(bin.length);
-                            for(let i = 0; i < bin.length; i++) {
-                                arr[i] = bin.charCodeAt(i);
-                            }
-                            chunks.push(arr);
-                            totalLength += arr.length;
-                        }
+                    let blobs = sortedKeys.map(k => {
+                        let b64 = feeds[k].split(',')[1];
+                        let bin = atob(b64);
+                        let arr = new Uint8Array(bin.length);
+                        for(let i=0; i<bin.length; i++) arr[i] = bin.charCodeAt(i);
+                        return new Blob([arr], {type: 'video/webm'});
                     });
-
-                    if(chunks.length > 0) {
-                        // 2. एक सिंगल बड़ा Uint8Array बनाकर सभी टुकड़ों को आपस में मर्ज करना
-                        let combinedArray = new Uint8Array(totalLength);
-                        let offset = 0;
-                        chunks.forEach(chunk => {
-                            combinedArray.set(chunk, offset);
-                            offset += chunk.length;
-                        });
-
-                        // 3. सिंगल कंबाइंड एरे से एक शुद्ध Blob ऑब्जेक्ट बनाना
-                        let superBlob = new Blob([combinedArray], {type: 'video/webm'});
-                        let url = URL.createObjectURL(superBlob);
-                        videoHtml = `<video controls autoplay src="${url}"></video>`;
-                    } else {
-                        videoHtml = '<p style="color:#eab308; margin-top:10px;">⏳ Safe processing delay...</p>';
-                    }
+                    
+                    const url = URL.createObjectURL(new Blob(blobs, {type: 'video/webm'}));
+                    videoHtml = `<video controls autoplay src="${url}"></video>`;
                 } catch(err) {
-                    videoHtml = '<p style="color:#f87171; margin-top:10px;">⚠️ Video chunk parse karne me error aaya.</p>';
+                    videoHtml = '<p style="color:#f87171; margin-top:10px;">⚠️ Video stream load hone me error aaya.</p>';
                 }
             } else {
-                videoHtml = '<p style="color:#eab308; margin-top:10px;">⏳ Video data abhi tak upload nahi hua ya available nahi hai.</p>';
+                videoHtml = '<p style="color:#eab308; margin-top:10px;">⏳ Video data abhi tak upload nahi hua hai.</p>';
             }
 
             area.innerHTML = `

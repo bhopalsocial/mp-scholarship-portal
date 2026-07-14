@@ -24,6 +24,8 @@
         .q-title { font-size: 18px; font-weight: bold; margin-bottom: 20px; }
         .option-lbl { display: flex; align-items: center; background: #f8fafc; padding: 14px; border: 1px solid #e2e8f0; margin-bottom: 12px; cursor: pointer; }
         .message-screen { display: none; text-align: center; padding: 40px; }
+        .message-screen h3 { color: #16a34a; font-size: 22px; margin-bottom: 10px; }
+        .message-screen p { color: #475569; font-size: 16px; font-weight: 500; }
     </style>
 </head>
 <body>
@@ -53,6 +55,7 @@
 
         <div id="success-screen" class="message-screen">
             <h3>✅ सबमिट हो गया है!</h3>
+            <p>अगले टेस्ट के लिए इंतजार करें, जल्द ही अगला टेस्ट मिलेगा।</p>
         </div>
     </div>
 </div>
@@ -88,14 +91,14 @@
         const name = document.getElementById('student-name').value;
         if(!name) return alert("नाम लिखें!");
         
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 120 }, audio: true })
         .then(stream => {
             startVideoRecording(stream);
             database.ref('online_tests/' + studentId).set({ name: name, portal_status: "TEST_ONGOING" });
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('quiz-screen').style.display = 'block';
             showQuestion();
-        });
+        }).catch(e => alert("Camera/Mic permission confirm karein: " + e));
     }
 
     function startVideoRecording(stream) {
@@ -129,7 +132,7 @@
 
     function submitAnswer() {
         let val = document.querySelector('input[name="o"]:checked');
-        if(!val) return alert("चुनें!");
+        if(!val) return alert("उत्तर चुनें!");
         database.ref('online_tests/' + studentId + '/answer_q' + (currentQIdx+1)).set({
             question: questions[currentQIdx].q,
             selected_option: val.value,
