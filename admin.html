@@ -8,21 +8,25 @@
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
         body { background: #0f172a; color: white; padding: 20px; }
-        .grid { display: grid; grid-template-columns: 320px 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; max-width: 1300px; margin: 0 auto; }
         header { background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
-        .card-list { background: #1e293b; padding: 15px; border-radius: 8px; min-height: 70vh; }
-        .card { background: #334155; padding: 15px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; border-left: 4px solid #64748b; transition: 0.2s; }
+        .card-list { background: #1e293b; padding: 15px; border-radius: 8px; min-height: 75vh; }
+        .card { background: #334155; padding: 12px; border-radius: 8px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; border-left: 4px solid #64748b; position: relative; }
         .card:hover { background: #475569; }
         .card.active { border-left-color: #38bdf8; background: #475569; }
-        .video-box { background: #1e293b; padding: 20px; border-radius: 8px; min-height: 70vh; }
-        video { width: 100%; max-width: 400px; border-radius: 8px; margin-top: 15px; display: block; border: 2px solid #38bdf8; }
-        .q-row { background: #334155; padding: 10px; margin-top: 5px; border-radius: 4px; font-size: 14px; }
+        .card h4 { font-size: 16px; padding-right: 80px; }
+        .card p { font-size: 11px; color: #cbd5e1; margin-top: 3px; }
+        .btn-eliminate { position: absolute; right: 12px; top: 12px; background: #ef4444; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; z-index: 10; }
+        .btn-eliminate:hover { background: #b91c1c; }
+        .video-box { background: #1e293b; padding: 20px; border-radius: 8px; min-height: 75vh; overflow-y: auto; }
+        video { width: 100%; max-width: 480px; border-radius: 8px; margin-top: 15px; display: block; border: 2px solid #38bdf8; }
+        .q-row { background: #334155; padding: 12px; margin-top: 8px; border-radius: 6px; font-size: 14px; border-bottom: 1px solid #475569; }
     </style>
 </head>
 <body>
 
     <header>
-        <h2>🛡️ Admin Control Room (Safe Stream)</h2>
+        <h2>🛡️ Admin Control Room (Safe Stream & Exact Delete)</h2>
     </header>
 
     <div class="grid">
@@ -51,10 +55,9 @@
         const db = firebase.database();
         window.allStudents = {};
         
-        // डेटाबेस से लाइव लिस्ट लोड करना
         db.ref('online_tests').on('value', (snap) => {
             const data = snap.val() || {};
-            window.allStudents = data; // ग्लोबल डेटा स्टोर करना ताकि क्लिक पर तुरंत मिले
+            window.allStudents = data;
             
             const list = document.getElementById('student-list');
             list.innerHTML = '<h3>Students:</h3>';
@@ -66,7 +69,8 @@
                 list.innerHTML += `
                     <div class="card" id="card-${id}" onclick="playVideo('${id}')">
                         <h4>👤 ${studentName}</h4>
-                        <p style="font-size:11px; color:#cbd5e1; margin-top:3px;">ID: ${id}</p>
+                        <p>ID: ${id}</p>
+                        <button class="btn-eliminate" onclick="eliminateStudent(event, '${id}')">Eliminate</button>
                     </div>
                 `;
             }
@@ -75,9 +79,21 @@
             }
         });
 
-        // स्टूडेंट कार्ड पर क्लिक होने पर डिटेल्स दिखाने वाला फंक्शन
+        function eliminateStudent(event, id) {
+            event.stopPropagation();
+            if (confirm(`Kya aap waqai is student ko eliminate karke Firebase se sara data delete karna chahte hain?`)) {
+                db.ref('online_tests/' + id).remove()
+                .then(() => {
+                    alert(`Student ka data successfully delete kar diya gaya hai!`);
+                    document.getElementById('view-area').innerHTML = `
+                        <h3>Student chunein...</h3>
+                        <p style="color:#94a3b8; margin-top:10px;">Kisi bhi student par click karke details aur video dekhein.</p>
+                    `;
+                }).catch(e => alert("Delete karne me dikkat aayi: " + e));
+            }
+        }
+
         function playVideo(id) {
-            // एक्टिव क्लास बदलना (UI हाइलाइट के लिए)
             document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
             const selectedCard = document.getElementById('card-' + id);
             if(selectedCard) selectedCard.classList.add('active');
@@ -86,7 +102,6 @@
             const area = document.getElementById('view-area');
             if (!student) return;
 
-            // उत्तर (Answers) निकालना
             let answersHtml = '';
             for (let key in student) {
                 if (key.startsWith('answer_q')) {
@@ -94,34 +109,48 @@
                     if (qItem && typeof qItem === 'object') {
                         answersHtml += `
                             <div class="q-row">
-                                <b>${qItem.question || 'Question'}</b><br>
-                                <span>Jawab: ${qItem.selected_option || qItem.ans || 'N/A'}</span>
+                                <b>❓ ${qItem.question || 'Question'}</b><br>
+                                <span style="margin-top:5px; display:inline-block;">Jawab: <span style="color:#38bdf8;">${qItem.selected_option || qItem.ans || 'N/A'}</span></span>
                             </div>
                         `;
                     }
                 }
             }
 
-            // वीडियो पार्ट्स को मर्ज करके लोड करना
             let videoHtml = '';
             if (student.recorded_video_feed && Object.keys(student.recorded_video_feed).length > 0) {
                 let feeds = student.recorded_video_feed;
+                
+                // Pure numeric extract karke perfectly numerical sort order maintain karna
                 let sortedKeys = Object.keys(feeds).sort((a, b) => {
-                    return parseInt(a.replace('video_part_', '')) - parseInt(b.replace('video_part_', ''));
+                    let numA = parseInt(a.replace(/[^\d]/g, ''), 10) || 0;
+                    let numB = parseInt(b.replace(/[^\d]/g, ''), 10) || 0;
+                    return numA - numB;
                 });
 
                 try {
-                    let blobs = sortedKeys.map(k => {
-                        let b64 = feeds[k].split(',')[1];
-                        let bin = atob(b64);
-                        let arr = new Uint8Array(bin.length);
-                        for(let i=0; i<bin.length; i++) arr[i] = bin.charCodeAt(i);
-                        return new Blob([arr], {type: 'video/webm'});
+                    let blobs = [];
+                    sortedKeys.forEach(k => {
+                        let base64Str = feeds[k];
+                        if (base64Str) {
+                            let parts = base64Str.split(',');
+                            let rawB64 = parts.length > 1 ? parts[1] : parts[0];
+                            let bin = atob(rawB64);
+                            let arr = new Uint8Array(bin.length);
+                            for(let i = 0; i < bin.length; i++) {
+                                arr[i] = bin.charCodeAt(i);
+                            }
+                            blobs.push(new Blob([arr], {type: 'video/webm'}));
+                        }
                     });
                     
-                    let superBlob = new Blob(blobs, {type: 'video/webm'});
-                    let url = URL.createObjectURL(superBlob);
-                    videoHtml = `<video controls autoplay src="${url}"></video>`;
+                    if(blobs.length > 0) {
+                        let superBlob = new Blob(blobs, {type: 'video/webm'});
+                        let url = URL.createObjectURL(superBlob);
+                        videoHtml = `<video controls autoplay src="${url}"></video>`;
+                    } else {
+                        videoHtml = '<p style="color:#eab308; margin-top:10px;">⏳ Safe processing delay...</p>';
+                    }
                 } catch(err) {
                     videoHtml = '<p style="color:#f87171; margin-top:10px;">⚠️ Video chunk parse karne me error aaya.</p>';
                 }
@@ -129,7 +158,6 @@
                 videoHtml = '<p style="color:#eab308; margin-top:10px;">⏳ Video data abhi tak upload nahi hua ya available nahi hai.</p>';
             }
 
-            // स्क्रीन पर रेंडर करना
             area.innerHTML = `
                 <h3 style="color:#38bdf8; border-bottom:2px solid #334155; padding-bottom:8px;">🎓 Details: ${student.name || id}</h3>
                 <div style="margin-top:15px;">
