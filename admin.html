@@ -6,17 +6,34 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <style>
-        body { background: #0f172a; color: white; padding: 20px; font-family: sans-serif; }
-        .grid { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
-        .card { background: #334155; padding: 15px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; }
-        .video-box { background: #1e293b; padding: 20px; border-radius: 8px; }
-        video { width: 100%; border-radius: 8px; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
+        body { background: #0f172a; color: white; padding: 20px; }
+        .grid { display: grid; grid-template-columns: 320px 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; }
+        header { background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .card-list { background: #1e293b; padding: 15px; border-radius: 8px; min-height: 70vh; }
+        .card { background: #334155; padding: 15px; margin-bottom: 10px; border-radius: 8px; cursor: pointer; border-left: 4px solid #64748b; transition: 0.2s; }
+        .card:hover { background: #475569; }
+        .card.active { border-left-color: #38bdf8; background: #475569; }
+        .video-box { background: #1e293b; padding: 20px; border-radius: 8px; min-height: 70vh; }
+        video { width: 100%; max-width: 400px; border-radius: 8px; margin-top: 15px; display: block; border: 2px solid #38bdf8; }
+        .q-row { background: #334155; padding: 10px; margin-top: 5px; border-radius: 4px; font-size: 14px; }
     </style>
 </head>
 <body>
+
+    <header>
+        <h2>🛡️ Admin Control Room (Safe Stream)</h2>
+    </header>
+
     <div class="grid">
-        <div id="student-list">Loading...</div>
-        <div id="view-area" class="video-box">Student chunein...</div>
+        <div class="card-list" id="student-list">
+            <h3>Students:</h3>
+            <p style="color:#94a3b8; font-size:14px; margin-top:10px;">Loading data...</p>
+        </div>
+        <div id="view-area" class="video-box">
+            <h3>Student chunein...</h3>
+            <p style="color:#94a3b8; margin-top:10px;">Kisi bhi student par click karke details aur video dekhein.</p>
+        </div>
     </div>
 
     <script>
@@ -29,40 +46,101 @@
             messagingSenderId: "380512974619",
             appId: "1:380512974619:web:a7ecfba6999a600a7cc5be"
         };
+        
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
+        window.allStudents = {};
         
+        // डेटाबेस से लाइव लिस्ट लोड करना
         db.ref('online_tests').on('value', (snap) => {
             const data = snap.val() || {};
+            window.allStudents = data; // ग्लोबल डेटा स्टोर करना ताकि क्लिक पर तुरंत मिले
+            
             const list = document.getElementById('student-list');
             list.innerHTML = '<h3>Students:</h3>';
+            
+            let hasStudents = false;
             for (let id in data) {
-                list.innerHTML += `<div class="card" onclick="playVideo('${id}')">👤 ${data[id].name || id}</div>`;
+                hasStudents = true;
+                const studentName = data[id].name || id;
+                list.innerHTML += `
+                    <div class="card" id="card-${id}" onclick="playVideo('${id}')">
+                        <h4>👤 ${studentName}</h4>
+                        <p style="font-size:11px; color:#cbd5e1; margin-top:3px;">ID: ${id}</p>
+                    </div>
+                `;
             }
-            window.allStudents = data;
+            if(!hasStudents) {
+                list.innerHTML += '<p style="color:#94a3b8; font-size:14px; margin-top:10px;">Koi student connect nahi hai.</p>';
+            }
         });
 
+        // स्टूडेंट कार्ड पर क्लिक होने पर डिटेल्स दिखाने वाला फंक्शन
         function playVideo(id) {
+            // एक्टिव क्लास बदलना (UI हाइलाइट के लिए)
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+            const selectedCard = document.getElementById('card-' + id);
+            if(selectedCard) selectedCard.classList.add('active');
+
             const student = window.allStudents[id];
             const area = document.getElementById('view-area');
-            if (student.recorded_video_feed) {
+            if (!student) return;
+
+            // उत्तर (Answers) निकालना
+            let answersHtml = '';
+            for (let key in student) {
+                if (key.startsWith('answer_q')) {
+                    const qItem = student[key];
+                    if (qItem && typeof qItem === 'object') {
+                        answersHtml += `
+                            <div class="q-row">
+                                <b>${qItem.question || 'Question'}</b><br>
+                                <span>Jawab: ${qItem.selected_option || qItem.ans || 'N/A'}</span>
+                            </div>
+                        `;
+                    }
+                }
+            }
+
+            // वीडियो पार्ट्स को मर्ज करके लोड करना
+            let videoHtml = '';
+            if (student.recorded_video_feed && Object.keys(student.recorded_video_feed).length > 0) {
                 let feeds = student.recorded_video_feed;
                 let sortedKeys = Object.keys(feeds).sort((a, b) => {
                     return parseInt(a.replace('video_part_', '')) - parseInt(b.replace('video_part_', ''));
                 });
 
-                let blobs = sortedKeys.map(k => {
-                    let b = atob(feeds[k].split(',')[1]);
-                    let arr = new Uint8Array(b.length);
-                    for(let i=0; i<b.length; i++) arr[i] = b.charCodeAt(i);
-                    return new Blob([arr], {type: 'video/webm'});
-                });
-                
-                let url = URL.createObjectURL(new Blob(blobs, {type: 'video/webm'}));
-                area.innerHTML = `<h3>${student.name || id}</h3><video controls src="${url}"></video>`;
+                try {
+                    let blobs = sortedKeys.map(k => {
+                        let b64 = feeds[k].split(',')[1];
+                        let bin = atob(b64);
+                        let arr = new Uint8Array(bin.length);
+                        for(let i=0; i<bin.length; i++) arr[i] = bin.charCodeAt(i);
+                        return new Blob([arr], {type: 'video/webm'});
+                    });
+                    
+                    let superBlob = new Blob(blobs, {type: 'video/webm'});
+                    let url = URL.createObjectURL(superBlob);
+                    videoHtml = `<video controls autoplay src="${url}"></video>`;
+                } catch(err) {
+                    videoHtml = '<p style="color:#f87171; margin-top:10px;">⚠️ Video chunk parse karne me error aaya.</p>';
+                }
             } else {
-                area.innerHTML = 'Video data nahi mila.';
+                videoHtml = '<p style="color:#eab308; margin-top:10px;">⏳ Video data abhi tak upload nahi hua ya available nahi hai.</p>';
             }
+
+            // स्क्रीन पर रेंडर करना
+            area.innerHTML = `
+                <h3 style="color:#38bdf8; border-bottom:2px solid #334155; padding-bottom:8px;">🎓 Details: ${student.name || id}</h3>
+                <div style="margin-top:15px;">
+                    <strong>🎥 Live Video Feed:</strong>
+                    ${videoHtml}
+                </div>
+                <div style="margin-top:20px;">
+                    <strong>📊 Answer Sheet:</strong>
+                    ${answersHtml || '<p style="color:#94a3b8; font-size:14px; margin-top:5px;">Koi answer submit nahi kiya.</p>'}
+                </div>
+            `;
         }
     </script>
 </body>
