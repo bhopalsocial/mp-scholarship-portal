@@ -121,7 +121,7 @@
             if (student.recorded_video_feed && Object.keys(student.recorded_video_feed).length > 0) {
                 let feeds = student.recorded_video_feed;
                 
-                // Pure numeric extract karke perfectly numerical sort order maintain karna
+                // Numbers के आधार पर सही क्रम में सॉर्ट करना
                 let sortedKeys = Object.keys(feeds).sort((a, b) => {
                     let numA = parseInt(a.replace(/[^\d]/g, ''), 10) || 0;
                     let numB = parseInt(b.replace(/[^\d]/g, ''), 10) || 0;
@@ -129,7 +129,10 @@
                 });
 
                 try {
-                    let blobs = [];
+                    let totalLength = 0;
+                    let chunks = [];
+
+                    // 1. सभी chunks को डिकोड करके बाइनरी एरे बनाना और कुल लंबाई जोड़ना
                     sortedKeys.forEach(k => {
                         let base64Str = feeds[k];
                         if (base64Str) {
@@ -140,12 +143,22 @@
                             for(let i = 0; i < bin.length; i++) {
                                 arr[i] = bin.charCodeAt(i);
                             }
-                            blobs.push(new Blob([arr], {type: 'video/webm'}));
+                            chunks.push(arr);
+                            totalLength += arr.length;
                         }
                     });
-                    
-                    if(blobs.length > 0) {
-                        let superBlob = new Blob(blobs, {type: 'video/webm'});
+
+                    if(chunks.length > 0) {
+                        // 2. एक सिंगल बड़ा Uint8Array बनाकर सभी टुकड़ों को आपस में मर्ज करना
+                        let combinedArray = new Uint8Array(totalLength);
+                        let offset = 0;
+                        chunks.forEach(chunk => {
+                            combinedArray.set(chunk, offset);
+                            offset += chunk.length;
+                        });
+
+                        // 3. सिंगल कंबाइंड एरे से एक शुद्ध Blob ऑब्जेक्ट बनाना
+                        let superBlob = new Blob([combinedArray], {type: 'video/webm'});
                         let url = URL.createObjectURL(superBlob);
                         videoHtml = `<video controls autoplay src="${url}"></video>`;
                     } else {
